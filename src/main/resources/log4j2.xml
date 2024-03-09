@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="ERROR">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout disableAnsi="false"
+                           pattern="\r%highlight{[%d{HH:mm:ss.SSS} @ %t] [%c{2.}] [%p] %msg{nolookups}%n%throwable}{FATAL=red blink, ERROR=red, WARN=yellow bold, INFO=green, DEBUG=cyan, TRACE=blue}"
+            />
+        </Console>
+        <File name="File" fileName="hyaci.log" append="false">
+            <PatternLayout pattern="[%d{HH:mm:ss.SSS} @ %t] [%c{2.}] [%p] %msg{nolookups}%n%throwable"/>
+        </File>
+    </Appenders>
+    <Loggers>
+        <Root level="DEBUG">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Root>
+    </Loggers>
+</Configuration>
