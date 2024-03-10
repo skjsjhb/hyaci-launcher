@@ -1,6 +1,5 @@
 package skjsjhb.mc.hyaci.sys
 
-import skjsjhb.mc.hyaci.launch.canonicalOSName
 import skjsjhb.mc.hyaci.util.debug
 import skjsjhb.mc.hyaci.util.info
 import java.nio.file.Path

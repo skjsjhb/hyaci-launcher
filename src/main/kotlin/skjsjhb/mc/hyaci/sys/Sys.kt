@@ -1,4 +1,4 @@
-package skjsjhb.mc.hyaci.launch
+package skjsjhb.mc.hyaci.sys
 
 /**
  * Gets the canonical name of the current OS.

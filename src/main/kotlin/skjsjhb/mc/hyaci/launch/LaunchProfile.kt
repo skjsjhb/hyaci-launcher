@@ -2,6 +2,7 @@ package skjsjhb.mc.hyaci.launch
 
 import kotlinx.serialization.json.*
 import skjsjhb.mc.hyaci.net.Artifact
+import skjsjhb.mc.hyaci.sys.canonicalOSName
 import skjsjhb.mc.hyaci.util.debug
 import skjsjhb.mc.hyaci.util.info
 import skjsjhb.mc.hyaci.util.warn

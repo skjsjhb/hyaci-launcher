@@ -1,5 +1,6 @@
 package skjsjhb.mc.hyaci.launch
 
+import skjsjhb.mc.hyaci.sys.canonicalOSName
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
