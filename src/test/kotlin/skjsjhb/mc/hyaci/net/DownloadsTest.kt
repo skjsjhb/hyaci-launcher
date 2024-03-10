@@ -9,11 +9,15 @@ class DownloadsTest {
     @Test
     fun `Download File`() {
         val a = immediateArtifactOf(
-            "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
-            "version_manifest_v2.json"
+            "https://piston-data.mojang.com/v1/objects/099bf3a8ad10d4a4ca8acc3f7347458ed7db16ec/client.jar",
+            "client.jar"
         )
-        DownloadTask(a).resolve().get()
-        assertTrue { Files.exists(Path.of("version_manifest_v2.json")) }
-        Files.delete(Path.of("version_manifest_v2.json"))
+        val task = DownloadTask(a)
+        assertTrue { task.resolve().get() }
+        assertTrue { task.finished() }
+        assertTrue { task.progress() == 1.0 }
+        assertTrue { task.speed.get() > 0 }
+        assertTrue { Files.exists(Path.of("client.jar")) }
+        Files.delete(Path.of("client.jar"))
     }
 }

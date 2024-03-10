@@ -23,9 +23,48 @@ private val dlTaskPool: ExecutorService = run {
 }
 
 /**
+ * The status of a download task.
+ */
+enum class DownloadTaskStatus {
+    /**
+     * The task is created and ready to be scheduled.
+     */
+    READY,
+
+    /**
+     * The task has been committed to the pool, but not yet started.
+     */
+    COMMITTED,
+
+    /**
+     * The task is now active and transferring data.
+     */
+    ACTIVE,
+
+    /**
+     * The transfer has completed. No errors found.
+     */
+    DONE,
+
+    /**
+     * The transfer has failed, either an I/O exception occurred, or the validation did not pass.
+     */
+    FAILED
+}
+
+/**
  * A class which holds runtime data of a download task.
  */
 class DownloadTask(private val artifact: Artifact) {
+    /**
+     * The [DownloadTaskStatus] of the current task.
+     */
+    var status = DownloadTaskStatus.READY
+        @Synchronized
+        get
+        @Synchronized
+        set
+
     // There is no atomic version of ULong, but Long is still usually longer than any file length
     private var totalSize = AtomicLong(artifact.size().toLong())
 
@@ -38,14 +77,41 @@ class DownloadTask(private val artifact: Artifact) {
     private var tries = Options.getInt("downloads.tries", 3).clampMin(1)
 
     /**
+     * The speed of the current task.
+     */
+    var speed = AtomicLong(0)
+        private set
+
+    /**
+     * Gets the progress of the current task.
+     *
+     * Value ranges from `0.0` to `1.0`.
+     * If the task is not started, the value is `0.0`.
+     * If it has failed, the value is the progress of the last successful byte.
+     * A value lower than `0.0` means the progress is unknown.
+     */
+    fun progress(): Double = if (totalSize.get() <= 0) -1.0 else completedSize.get().toDouble() / totalSize.get()
+
+    /**
+     * Checks whether the task has finished, either completed or failed.
+     */
+    fun finished(): Boolean = status == DownloadTaskStatus.DONE || status == DownloadTaskStatus.FAILED
+
+    /**
      * Commits the task to be downloaded.
      */
     fun resolve(): Future<Boolean> =
-        dlTaskPool.submit(Callable { download() }).also { info("Committed $url -> $path") }
+        dlTaskPool.submit(Callable { download() })
+            .also {
+                status = DownloadTaskStatus.COMMITTED
+                info("Committed $url -> $path")
+            }
 
     // Try download and validate once
     private fun download(): Boolean {
+        status = DownloadTaskStatus.ACTIVE
         info("Now $url")
+
         while (tries > 0) {
             tries--
             try {
@@ -55,9 +121,11 @@ class DownloadTask(private val artifact: Artifact) {
                 warn("Unable to download $url, $tries tries remain", e)
                 continue
             }
+            status = DownloadTaskStatus.DONE
             info("Got $url")
             return true
         }
+        status = DownloadTaskStatus.FAILED
         warn("Abandoned $url")
         return false
     }
@@ -90,7 +158,12 @@ class DownloadTask(private val artifact: Artifact) {
                 StandardOpenOption.TRUNCATE_EXISTING,
                 StandardOpenOption.CREATE
             )
-                .let { MeteredOutputStream(it) { completedSize.set(bytesTransferred) } }
+                .let {
+                    MeteredOutputStream(it) {
+                        completedSize.set(it.bytesTransferred)
+                        speed.set(it.speed)
+                    }
+                }
                 .use { output -> input.transferTo(output) }
         }
 
@@ -154,7 +227,7 @@ private const val meterSampleInterval = 100
 // Meters the transferred bytes of a stream
 private class MeteredOutputStream(
     private val outStream: OutputStream,
-    private val onUpdate: MeteredOutputStream.() -> Any?
+    private val onUpdate: (it: MeteredOutputStream) -> Any?
 ) : OutputStream() {
     var bytesTransferred = 0L
         private set
@@ -167,13 +240,14 @@ private class MeteredOutputStream(
 
     private fun internalOnTransfer(s: Int = 1) {
         bytesTransferred += s
-        onUpdate()
+        updateSpeedMeter()
+        onUpdate(this)
     }
 
     private fun updateSpeedMeter() {
         System.currentTimeMillis().let {
             if (it > nextMeterTime) {
-                speed = bytesTransferred * 1000 / (it - nextMeterTime)
+                speed = (bytesTransferred - lastMeterBytes) * 1000 / (it - nextMeterTime + meterSampleInterval)
                 lastMeterBytes = bytesTransferred
                 nextMeterTime += meterSampleInterval
             }
