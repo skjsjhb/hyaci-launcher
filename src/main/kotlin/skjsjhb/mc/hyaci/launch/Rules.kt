@@ -25,28 +25,23 @@ interface Rule {
 /**
  * Checks if the given value map satisfies the defined rules.
  */
-infix fun List<Rule>.accepts(rv: Map<String, String>): Boolean {
-    if (this.isEmpty()) return true // When rules are empty, then fallback to pass
-    var allow = false
-    forEach {
-        if (it accepts rv) allow = it.action()
-    }
-    return allow
-}
+infix fun List<Rule>.accepts(rv: Map<String, String>): Boolean =
+    if (isEmpty()) true // When rules are empty, then fallback to pass
+    else asReversed().stream().filter { it accepts rv }.map { it.action() }.findFirst().orElse(false)
 
 /**
  * An implementation of [Rule] based on vanilla JSON format.
  */
 class JsonRule(private val src: JsonElement) : Rule {
-    override fun accepts(rv: Map<String, String>): Boolean {
-        val criteria = HashMap<String, String>()
-
-        // Collect properties with qualified name
-        src.jsonObject["os"]?.jsonObject?.forEach { (k, v) -> criteria["os.$k"] = v.jsonPrimitive.content }
-        src.jsonObject["features"]?.jsonObject?.forEach { (k, v) -> criteria["features.$k"] = v.jsonPrimitive.content }
-
-        return criteria.all { (k, e) -> rv[k]?.matches(e.toRegex()) ?: false }
-    }
+    override fun accepts(rv: Map<String, String>): Boolean =
+        mutableListOf<Pair<String, String>>().apply {
+            // Collect properties with qualified name
+            listOf("os", "features").forEach {
+                src.jsonObject[it]?.jsonObject
+                    ?.map { (k, v) -> Pair("$it.$k", v.jsonPrimitive.content) }
+                    ?.let { addAll(it) }
+            }
+        }.all { (k, e) -> rv[k]?.matches(e.toRegex()) ?: false }
 
     override fun action(): Boolean =
         src.jsonObject["action"]?.jsonPrimitive?.content == "allow"

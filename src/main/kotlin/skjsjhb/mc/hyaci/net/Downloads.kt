@@ -16,7 +16,7 @@ import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicLong
 
 // Configure the pool size of the downloader
-private val dlTaskPool: ExecutorService = run {
+private val dlTaskPool: ExecutorService by lazy {
     val parallelism = Options.getInt("downloads.poolSize", 32).clampMin(1)
     debug("Downloader pool size set to $parallelism")
     Executors.newWorkStealingPool(parallelism)
@@ -59,7 +59,7 @@ class DownloadTask(private val artifact: Artifact) {
     /**
      * The [DownloadTaskStatus] of the current task.
      */
-    var status = DownloadTaskStatus.READY
+    var status: DownloadTaskStatus = DownloadTaskStatus.READY
         @Synchronized
         get
         @Synchronized
@@ -76,11 +76,13 @@ class DownloadTask(private val artifact: Artifact) {
 
     private var tries = Options.getInt("downloads.tries", 3).clampMin(1)
 
+    // Atomic wrapper of speed
+    private var speed0 = AtomicLong(0)
+
     /**
-     * The speed of the current task.
+     * Gets the speed of the current task.
      */
-    var speed = AtomicLong(0)
-        private set
+    fun speed(): Long = speed0.get()
 
     /**
      * Gets the progress of the current task.
@@ -114,16 +116,13 @@ class DownloadTask(private val artifact: Artifact) {
 
         while (tries > 0) {
             tries--
-            try {
+            runCatching {
                 retrieve()
                 validateOrThrow()
-            } catch (e: Exception) {
-                warn("Unable to download $url, $tries tries remain", e)
-                continue
-            }
-            status = DownloadTaskStatus.DONE
-            info("Got $url")
-            return true
+                status = DownloadTaskStatus.DONE
+                info("Got $url")
+                return true
+            }.onFailure { warn("Unable to download $url, $tries tries remain", it) } // And try again
         }
         status = DownloadTaskStatus.FAILED
         warn("Abandoned $url")
@@ -135,41 +134,35 @@ class DownloadTask(private val artifact: Artifact) {
         totalSize.set(artifact.size().toLong())
         completedSize.set(0)
 
-        val connection = url.openConnection()
+        url.openConnection().run {
+            connect()
+            debug("Connected to ${url.host}:${url.port.takeIf { it != -1 } ?: url.defaultPort}")
 
-        connection.connect()
-        debug("Connected to ${url.host}:${url.port.takeIf { it != -1 } ?: url.defaultPort}")
-
-        connection.contentLengthLong.let {
-            if (it > 0) {
-                totalSize.set(connection.contentLengthLong)
+            if (contentLengthLong > 0) {
+                totalSize.set(contentLengthLong)
                 debug("Content length is $totalSize")
             } else {
                 debug("Content length unknown")
             }
-        }
 
-        debug("Start transferring stream data")
+            debug("Start transferring stream data")
 
-        connection.inputStream.use { input ->
-            Files.newOutputStream(
-                path,
-                StandardOpenOption.WRITE,
-                StandardOpenOption.TRUNCATE_EXISTING,
-                StandardOpenOption.CREATE
-            )
-                .let {
+            inputStream.use { input ->
+                Files.newOutputStream(
+                    path,
+                    StandardOpenOption.WRITE,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.CREATE
+                ).let {
                     MeteredOutputStream(it) {
                         completedSize.set(it.bytesTransferred)
-                        speed.set(it.speed)
+                        speed0.set(it.speed)
                     }
-                }
-                .use { output -> input.transferTo(output) }
+                }.use { output -> input.transferTo(output) }
+            }
         }
 
-        totalSize.get().let { if (it > 0) it else "?" }.let {
-            debug("Transfer ended, $completedSize bytes received")
-        }
+        debug("Transfer ended, $completedSize bytes received")
     }
 
     // Validates the file and throw an exception if failed
@@ -179,14 +172,12 @@ class DownloadTask(private val artifact: Artifact) {
 
     // Validates the file
     // Validation based on option `downloads.validation`
-    private fun validate(): Boolean {
-        info("Validating $url")
-        return when (Options.getString("downloads.validation", "checksum")) {
+    private fun validate(): Boolean =
+        when (Options.getString("downloads.validation", "checksum")) {
             "checksum" -> validateChecksum()
             "size" -> validateSize()
             else -> true
-        }
-    }
+        }.also { info("Validating $url") }
 
     private fun validateChecksum(): Boolean {
         artifact.checksum().ifBlank {

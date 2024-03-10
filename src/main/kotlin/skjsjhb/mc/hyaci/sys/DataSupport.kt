@@ -6,7 +6,6 @@ import java.nio.file.Path
 import java.sql.Connection
 import java.sql.DriverManager
 import java.util.stream.Stream
-import kotlin.jvm.optionals.getOrElse
 
 /**
  * Gets the absolute path to a file under the data path.
@@ -24,27 +23,24 @@ private const val dbName = "hyaci"
 
 private const val dataDirName = "Hyaci Launcher"
 
-private val dataPathRoot: Path =
-    run {
-        System.getProperty("hyaci.dataPath")?.let {
-            Path.of(it)
-        } ?: when (canonicalOSName()) {
-            "windows" ->
-                Stream.of("LOCALAPPDATA", "APPDATA")
-                    .map { System.getenv(it) }
-                    .filter { it != null }
-                    .map { Path.of(it) }
-                    .findFirst()
-                    .getOrElse { Path.of(System.getProperty("user.home"), "Documents") }
-                    .resolve(dataDirName)
+private val dataPathRoot: Path by lazy {
+    (System.getProperty("hyaci.dataPath")?.let {
+        Path.of(it)
+    } ?: when (canonicalOSName()) {
+        "windows" ->
+            Stream.of("LOCALAPPDATA", "APPDATA")
+                .map { System.getenv(it) }
+                .filter { it != null }
+                .map { Path.of(it) }
+                .findFirst()
+                .orElse(Path.of(System.getProperty("user.home"), "Documents"))
+                .resolve(dataDirName)
 
-            "osx" ->
-                Path.of(System.getProperty("user.home"), "Library/Application Support/$dataDirName")
+        "osx" ->
+            Path.of(System.getProperty("user.home"), "Library/Application Support/$dataDirName")
 
-            else -> Path.of(System.getProperty("user.home"), ".local/share/$dataDirName")
-        }
-    }.toAbsolutePath().normalize().also { info("Data path set to $it") }
-
-
+        else -> Path.of(System.getProperty("user.home"), ".local/share/$dataDirName")
+    }).toAbsolutePath().normalize().also { info("Data path set to $it") }
+}
 
 

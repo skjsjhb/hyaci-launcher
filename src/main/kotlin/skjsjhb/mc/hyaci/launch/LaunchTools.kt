@@ -5,7 +5,6 @@ import skjsjhb.mc.hyaci.util.info
 import skjsjhb.mc.hyaci.util.warn
 import skjsjhb.mc.hyaci.vfs.Vfs
 import java.io.File
-import java.nio.file.Files
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.stream.Stream
@@ -27,7 +26,6 @@ data class LaunchPack(
 
 // The limitation of backlog buffer
 private const val backlogLimit = 10000
-private const val backlogClearAmount = 100
 
 /**
  * Represents a running game instance.
@@ -41,7 +39,8 @@ class Game(private val launchPack: LaunchPack) {
     // A queue to store logs
     private val logBuffer: Queue<String> = ConcurrentLinkedQueue()
 
-    private val logStream: Stream<String?> = Stream.generate { logBuffer.poll() }
+    // Cached profile
+    private val profile = loadLaunchProfile(launchPack.id, launchPack.fs)
 
     /**
      * Accesses the log buffer via a shared [Stream].
@@ -49,15 +48,7 @@ class Game(private val launchPack: LaunchPack) {
      * This method always returns a reference to the same stream object.
      * This is not thread-safe by default and should be synchronized.
      */
-    fun logs(): Stream<String?> = logStream
-
-    /**
-     * Creates the game process, starts it, and waits for it to exit.
-     */
-    fun run() {
-        start()
-        process?.waitFor()
-    }
+    val logs: Stream<String?> = Stream.generate { logBuffer.poll() }
 
     /**
      * Stops the process.
@@ -66,30 +57,43 @@ class Game(private val launchPack: LaunchPack) {
      * However, if the game failed to launch while the process is dangling, this method might be needed.
      */
     fun stop() {
-        process?.run {
+        process?.apply {
             warn("Killing game process ${pid()} (this might cause data loss)")
             destroy()
         }
     }
 
-    // Creates the process
-    private fun start() {
-        if (process == null) {
-            info("Starting using ${launchPack.java}")
-            prepare()
-            process = builder.start()
-            info("Created game process ${process?.pid()}")
-            forwardOutput()
-        } else {
+    /**
+     * Starts the game.
+     *
+     * Loads resources, creates the process, and returns immediately.
+     */
+    fun start() {
+        if (process != null) {
             throw IllegalStateException("A process has already been created")
         }
+        info("Starting using ${launchPack.java}")
+        prepare()
+        process = builder.start()
+        info("Created game process ${process?.pid()}")
+        forwardOutput()
+    }
+
+    /**
+     * Waits for the process to exit and get its exit code.
+     *
+     * Returns immediately if already exited.
+     */
+    fun join(): Int {
+        process?.let {
+            return it.waitFor()
+        }
+        throw IllegalStateException("Joining a null process")
     }
 
     // Add log output to backlog buffer
     private fun commitLog(s: String) {
-        while (logBuffer.size > backlogLimit) {
-            repeat(backlogClearAmount) { logBuffer.poll() }
-        }
+        while (logBuffer.size > backlogLimit) logBuffer.poll()
         logBuffer.offer(s)
     }
 
@@ -104,18 +108,39 @@ class Game(private val launchPack: LaunchPack) {
                     debug("Output pipe closed")
                 }.onFailure { warn("Unexpected I/O pipe exception", it) }
             }.apply {
-                name = "Logcat (${pid})"
+                name = "GameStat-${pid}"
                 isDaemon = true
             }.start()
         }
     }
 
-    // Generate a command list
+    // Assemble arguments and apply template values
     private fun createCommand(): List<String> {
-        val profile = loadLaunchProfile(launchPack.id) {
-            Files.readString(launchPack.fs.profile(it))
+        val variableMap = launchPack.run {
+            mapOf(
+                "version_name" to profile.version(),
+                "game_directory" to fs.gameDir().toString(),
+                "assets_root" to fs.assetRoot().toString(),
+                "assets_index_name" to profile.assetId(),
+                "user_type" to "mojang",
+                "version_type" to profile.versionType(),
+                "natives_directory" to fs.natives(profile.id()).toString(),
+                "classpath" to createClassPath(),
+                "path" to fs.logConfig(profile.loggingArtifact()?.path() ?: "").toString(),
+                "auth_player_name" to "Player", // TODO authenticate
+                "auth_uuid" to UUID.nameUUIDFromBytes("OfflinePlayer:Player".toByteArray()).toString()
+            )
         }
-        return listOf(launchPack.java) + assembleArguments(launchPack, profile)
+
+        return mutableListOf<String>().apply {
+            add(launchPack.java)
+            profile.jvmArguments().filter { it.rules() accepts launchPack.rv }.forEach { addAll(it.values()) }
+            add(profile.mainClass())
+            profile.gameArguments().filter { it.rules() accepts launchPack.rv }.forEach { addAll(it.values()) }
+        }.map {
+            // Apply templates
+            variableMap.entries.fold(it) { acc, (k, v) -> acc.replace("\${$k}", v) }
+        }
     }
 
     // Prepares for the run
@@ -125,53 +150,27 @@ class Game(private val launchPack: LaunchPack) {
             .directory(File(launchPack.fs.gameDir().toString()))
             .redirectErrorStream(true)
     }
-}
 
-// Assemble arguments and apply template values
-private fun assembleArguments(lp: LaunchPack, profile: LaunchProfile): List<String> {
-    val variableMap = with(lp) {
-        mapOf(
-            "version_name" to profile.version(),
-            "game_directory" to fs.gameDir().toString(),
-            "assets_root" to fs.assetRoot().toString(),
-            "assets_index_name" to profile.assetId(),
-            "user_type" to "mojang",
-            "version_type" to profile.versionType(),
-            "natives_directory" to fs.natives(profile.id()).toString(),
-            "classpath" to createClassPath(lp, profile),
-            "path" to fs.logConfig(profile.loggingArtifact()?.path() ?: "").toString(),
-            "auth_player_name" to "Player", // TODO authenticate
-            "auth_uuid" to UUID.nameUUIDFromBytes("OfflinePlayer:Player".toByteArray()).toString()
-        )
-    }
-
-    return mutableListOf<String>().apply {
-        profile.jvmArguments().filter { it.rules() accepts lp.rv }.forEach { addAll(it.values()) }
-        add(profile.mainClass())
-        profile.gameArguments().filter { it.rules() accepts lp.rv }.forEach { addAll(it.values()) }
-    }.map {
-        // Apply templates
-        variableMap.entries.fold(it) { acc, (k, v) -> acc.replace("\${$k}", v) }
-    }
-}
-
-// Generates classpath
-private fun createClassPath(lp: LaunchPack, profile: LaunchProfile): String =
-    with(lp) {
-        mutableListOf<String>().apply {
-            // Add libraries
-            profile.libraries().forEach {
-                if (it.rules() accepts rv) {
-                    it.artifact()?.let {
-                        add(fs.library(it.path()).toString())
+    // Generates classpath
+    private fun createClassPath(): String =
+        launchPack.run {
+            mutableListOf<String>().apply {
+                // Add libraries
+                profile.libraries().forEach {
+                    if (it.rules() accepts rv) {
+                        it.artifact()?.let {
+                            add(fs.library(it.path()).toString())
+                        }
                     }
                 }
-            }
 
-            // Add client
-            profile.clientArtifact()?.let {
-                // Client artifacts do not have ID fields, use version field here for Forge compatibility
-                add(fs.client(profile.version()).toString())
-            }
-        }.also { debug("Generated classpath for ${profile.id()}, length ${it.size}") }.joinToString(File.pathSeparator)
-    }
+                // Add client
+                profile.clientArtifact()?.let {
+                    // Client artifacts do not have ID fields, use version field here for Forge compatibility
+                    add(fs.client(profile.version()).toString())
+                }
+            }.also { debug("Generated classpath for ${profile.id()}, length ${it.size}") }
+                .joinToString(File.pathSeparator)
+        }
+}
+

@@ -15,7 +15,8 @@ import java.nio.file.Path
  */
 fun forkClass(className: String, args: List<String> = emptyList()): Process =
     ProcessBuilder().apply {
-        val bin = Path.of(System.getProperty("java.home"), "bin", "java").normalize().toAbsolutePath().toString()
-        debug("Forking class $className using $bin")
-        command(listOf(bin, "-cp", System.getProperty("java.class.path"), className) + args)
+        Path.of(System.getProperty("java.home"), "bin", "java").normalize().toAbsolutePath().toString().let {
+            debug("Forking class $className using $it")
+            command(listOf(it, "-cp", System.getProperty("java.class.path"), className) + args)
+        }
     }.start()

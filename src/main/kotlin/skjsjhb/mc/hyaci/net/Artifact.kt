@@ -33,7 +33,7 @@ interface Artifact {
 /**
  * Create an immediate artifact, i.e., artifacts without sizes and hashes known in advance.
  */
-fun immediateArtifactOf(url: String, path: String): Artifact = object : Artifact {
+fun artifactOf(url: String, path: String): Artifact = object : Artifact {
     override fun url(): String = url
     override fun path(): String = path
     override fun size(): ULong = 0UL

@@ -8,6 +8,7 @@ fun canonicalOSName(): String =
     System.getProperty("os.name")?.lowercase().let {
         when {
             it == null -> "linux"
+            "linux" in it || "nix" in it || "sunos" in it || "bsd" in it || "unit" in it -> "linux"
             "darwin" in it || "mac" in it -> "osx"
             "windows" in it -> "windows"
             else -> "linux"

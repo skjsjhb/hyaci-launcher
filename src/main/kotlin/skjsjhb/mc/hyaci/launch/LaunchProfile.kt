@@ -6,6 +6,8 @@ import skjsjhb.mc.hyaci.sys.canonicalOSName
 import skjsjhb.mc.hyaci.util.debug
 import skjsjhb.mc.hyaci.util.info
 import skjsjhb.mc.hyaci.util.warn
+import skjsjhb.mc.hyaci.vfs.Vfs
+import java.nio.file.Files
 
 /**
  * Holding properties of game profiles for launching.
@@ -134,6 +136,17 @@ interface Argument {
 }
 
 /**
+ * Loads a launch profile from given [Vfs] instance.
+ *
+ * Profiles are parsed and linked.
+ * Dependencies are fetched from the given [Vfs].
+ *
+ * @param id The ID of the profile to be loaded.
+ * @param fs A [Vfs] filesystem containing the profile.
+ */
+fun loadLaunchProfile(id: String, fs: Vfs): LaunchProfile = loadLaunchProfile(id) { Files.readString(fs.profile(it)) }
+
+/**
  * Loads a set of profiles using given getter.
  *
  * Profiles are parsed and linked.
@@ -182,8 +195,8 @@ private fun JsonElement.gets(id: String): JsonElement? {
 }
 
 // Gets JSON string by keys split with dots, falls back to empty string
-private fun JsonElement.getString(id: String): String =
-    gets(id).let { if (it is JsonPrimitive && it.isString) it.content else "" }
+private fun JsonElement.getString(id: String, def: String = ""): String =
+    gets(id).let { if (it is JsonPrimitive && it.isString) it.content else def }
 
 /**
  * An implementation of [LaunchProfile] based on vanilla JSON format.
@@ -202,7 +215,7 @@ class JsonLaunchProfile(private val src: JsonElement) : LaunchProfile {
         }
 
         // Infer the version
-        return src.getString("inheritsFrom").ifBlank { id() }
+        return src.getString("inheritsFrom", id())
     }
 
     override fun libraries(): List<Library> {
@@ -328,7 +341,7 @@ class JsonArtifact(private val src: JsonElement) : Artifact {
 
     override fun size(): ULong = src.gets("size")?.jsonPrimitive?.long?.toULong() ?: 0UL
 
-    override fun checksum(): String = src.getString("sha1").let { if (it.isBlank()) "" else "sha1=$it" }
+    override fun checksum(): String = "sha1=${src.getString("sha1").ifBlank { return "" }}"
 }
 
 /**
@@ -337,18 +350,15 @@ class JsonArtifact(private val src: JsonElement) : Artifact {
 class JsonArgument(private val src: JsonElement) : Argument {
     override fun values(): List<String> =
         if (src is JsonObject) {
-            src["value"].let {
+            src["value"]?.let {
                 if (it is JsonArray) it.map { it.jsonPrimitive.content }
-                else if (it != null) listOf(it.jsonPrimitive.content)
-                else emptyList()
-            }
+                else listOf(it.jsonPrimitive.content)
+            } ?: emptyList()
         } else listOf(src.jsonPrimitive.content)
 
     override fun rules(): List<Rule> {
         if (src is JsonObject) {
-            src.gets("rules")?.let {
-                if (it is JsonArray) return it.jsonArray.map { JsonRule(it) }
-            }
+            src.gets("rules")?.takeIf { it is JsonArray }?.jsonArray?.map { JsonRule(it) }?.let { return it }
         }
         return emptyList()
     }
@@ -374,7 +384,7 @@ fun linkProfile(base: LaunchProfile?, head: LaunchProfile?): LaunchProfile =
 class LinkedLaunchProfile(private val base: LaunchProfile, private val head: LaunchProfile) : LaunchProfile {
     // Merge two nullable parts
     private fun <T> merge(b: T, h: T): T =
-        if (b is String && h is String) {
+        if (h is String) { // Merge candidates must be of the same type
             h.ifBlank { b }
         } else {
             h ?: b
@@ -402,7 +412,7 @@ class LinkedLaunchProfile(private val base: LaunchProfile, private val head: Lau
 
     override fun jreComponent(): String = merge(base.jreComponent(), head.jreComponent())
 
-    override fun jreVersion(): Int = if (head.jreVersion() == 0) base.jreVersion() else head.jreVersion()
+    override fun jreVersion(): Int = head.jreVersion().takeIf { it > 0 } ?: base.jreVersion()
 
     override fun clientArtifact(): Artifact? = merge(base.clientArtifact(), head.clientArtifact())
 
