@@ -30,7 +30,7 @@ dependencies {
 
     implementation("com.h2database:h2:2.2.224")
 
-    runtimeOnly("org.fusesource.jansi:jansi:1.18")
+    runtimeOnly("org.fusesource.jansi:jansi:2.4.1")
 
     testImplementation("com.google.code.findbugs:jsr305:3.0.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
