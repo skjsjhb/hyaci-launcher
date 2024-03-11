@@ -1,6 +1,6 @@
 # Hyaci Launcher
 
-A custom launcher for block game. Unrestrained, efficient, and pro first.
+A custom launcher for block game. Unrestrained, efficient, and pros first.
 
 > [!NOTE]
 > This project is a custom-made utility toolset for the game. The project by itself is open source and non-profit.
@@ -9,7 +9,7 @@ A custom launcher for block game. Unrestrained, efficient, and pro first.
 
 ## Disclaimer
 
-- **Working in progress.** It's not stable, lacking features, and even might be usable.
+- **Working in progress.** It's not stable, lacking features, and even might not be usable.
 - **Not for newbie.** Designed for experienced players, thus lacking guidance.
 - **Third party.** It's a custom project, not affiliated with Mojang and/or Microsoft.
 - **Not cracked.** Players must be authorized to launch the game.
