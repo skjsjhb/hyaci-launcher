@@ -47,6 +47,11 @@ enum class DownloadTaskStatus {
     DONE,
 
     /**
+     * The file already exists and the action is skipped.
+     */
+    SKIPPED,
+
+    /**
      * The transfer has failed, either an I/O exception occurred, or the validation did not pass.
      */
     FAILED
@@ -97,7 +102,8 @@ class DownloadTask(private val artifact: Artifact) {
     /**
      * Checks whether the task has finished, either completed or failed.
      */
-    fun finished(): Boolean = status == DownloadTaskStatus.DONE || status == DownloadTaskStatus.FAILED
+    fun finished(): Boolean =
+        status == DownloadTaskStatus.DONE || status == DownloadTaskStatus.FAILED || status == DownloadTaskStatus.SKIPPED
 
     /**
      * Commits the task to be downloaded.
@@ -116,7 +122,13 @@ class DownloadTask(private val artifact: Artifact) {
 
         while (tries > 0) {
             tries--
+
             runCatching {
+                if (alreadyExists()) {
+                    info("Hit $url")
+                    status = DownloadTaskStatus.SKIPPED
+                    return true
+                }
                 retrieve()
                 validateOrThrow()
                 status = DownloadTaskStatus.DONE
@@ -128,6 +140,15 @@ class DownloadTask(private val artifact: Artifact) {
         warn("Abandoned $url")
         return false
     }
+
+    // Checks if the target file is already there
+    private fun alreadyExists(): Boolean =
+        if (!Files.exists(path)) false
+        else {
+            completedSize.set(Files.size(path)) // Trick the validator to use file size
+            debug("Found existing file, validating")
+            validate()
+        }
 
     // Retrieves the content, but does not perform any validation.
     private fun retrieve() {
@@ -153,7 +174,7 @@ class DownloadTask(private val artifact: Artifact) {
                     StandardOpenOption.WRITE,
                     StandardOpenOption.TRUNCATE_EXISTING,
                     StandardOpenOption.CREATE
-                ).let {
+                ).let { // The meter will close the backed stream on close
                     MeteredOutputStream(it) {
                         completedSize.set(it.bytesTransferred)
                         speed0.set(it.speed)
@@ -173,11 +194,13 @@ class DownloadTask(private val artifact: Artifact) {
     // Validates the file
     // Validation based on option `downloads.validation`
     private fun validate(): Boolean =
-        when (Options.getString("downloads.validation", "checksum")) {
-            "checksum" -> validateChecksum()
-            "size" -> validateSize()
-            else -> true
-        }.also { info("Validating $url") }
+        info("Validating $url").let {
+            when (Options.getString("downloads.validation", "checksum")) {
+                "checksum" -> validateChecksum()
+                "size" -> validateSize()
+                else -> true
+            }
+        }
 
     private fun validateChecksum(): Boolean {
         artifact.checksum().ifBlank {
