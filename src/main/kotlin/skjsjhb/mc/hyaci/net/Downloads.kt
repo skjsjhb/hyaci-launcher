@@ -10,17 +10,8 @@ import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.security.NoSuchAlgorithmException
 import java.util.concurrent.Callable
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicLong
-
-// Configure the pool size of the downloader
-private val dlTaskPool: ExecutorService by lazy {
-    val parallelism = Options.getInt("downloads.poolSize", 32).clampMin(1)
-    debug("Downloader pool size set to $parallelism")
-    Executors.newWorkStealingPool(parallelism)
-}
 
 /**
  * The status of a download task.
@@ -70,6 +61,13 @@ class DownloadTask(private val artifact: Artifact) {
         @Synchronized
         set
 
+    /**
+     * Whether this task is optional.
+     *
+     * An optional task will not throw an exception if it fails.
+     */
+    var optional: Boolean = false
+
     // There is no atomic version of ULong, but Long is still usually longer than any file length
     private var totalSize = AtomicLong(artifact.size().toLong())
 
@@ -91,32 +89,19 @@ class DownloadTask(private val artifact: Artifact) {
 
     /**
      * Gets the progress of the current task.
-     *
-     * Value ranges from `0.0` to `1.0`.
-     * If the task is not started, the value is `0.0`.
-     * If it has failed, the value is the progress of the last successful byte.
-     * A value lower than `0.0` means the progress is unknown.
      */
-    fun progress(): Double = if (totalSize.get() <= 0) -1.0 else completedSize.get().toDouble() / totalSize.get()
+    fun progress(): Pair<Long, Long> = Pair(completedSize.get(), totalSize.get())
 
     /**
-     * Checks whether the task has finished, either completed or failed.
+     * Checks whether the task has finished.
      */
     fun finished(): Boolean =
-        status == DownloadTaskStatus.DONE || status == DownloadTaskStatus.FAILED || status == DownloadTaskStatus.SKIPPED
+        status == DownloadTaskStatus.DONE || status == DownloadTaskStatus.SKIPPED || status == DownloadTaskStatus.FAILED
 
     /**
-     * Commits the task to be downloaded.
+     * Resolves the download task, blocks until it's completed.
      */
-    fun resolve(): Future<Boolean> =
-        dlTaskPool.submit(Callable { download() })
-            .also {
-                status = DownloadTaskStatus.COMMITTED
-                info("Committed $url -> $path")
-            }
-
-    // Try download and validate once
-    private fun download(): Boolean {
+    fun resolve(): Boolean {
         status = DownloadTaskStatus.ACTIVE
         info("Now $url")
 
@@ -139,6 +124,13 @@ class DownloadTask(private val artifact: Artifact) {
         status = DownloadTaskStatus.FAILED
         warn("Abandoned $url")
         return false
+    }
+
+    /**
+     * Resolves the download, throws an exception if it failed.
+     */
+    fun resolveOrThrow() {
+        if (!resolve()) throw IOException("Failed to download $url -> $path")
     }
 
     // Checks if the target file is already there
@@ -231,6 +223,73 @@ class DownloadTask(private val artifact: Artifact) {
         else -> warn("Size mismatch, expected $totalSize but received $completedSize)").let { false }
     }
 }
+
+/**
+ * Manages a set of download tasks and provide a unified interface to manage progress and speed.
+ *
+ * The Status of each task can be retrieved via this field after a call to [resolve] or [resolveOrThrow].
+ *
+ * @param artifacts Artifacts to handle.
+ */
+class DownloadGroup(artifacts: Set<Artifact>) {
+    val tasks: Set<DownloadTask> = mutableSetOf<DownloadTask>().apply { artifacts.forEach { add(DownloadTask(it)) } }
+
+    private val executorService =
+        Executors.newWorkStealingPool(Options.getInt("downloads.poolSize", 32).clampMin(1))
+
+    /**
+     * Gets the current speed.
+     */
+    fun speed(): Long = tasks.fold(0L) { s, t -> s + t.speed() }
+
+    /**
+     * Gets the progress in terms of the completed tasks.
+     */
+    fun progressOfCount(): Pair<Int, Int> =
+        Pair(tasks.fold(0) { s, t -> if (t.finished()) s + 1 else s }, tasks.size)
+
+    /**
+     * Gets the progress in terms of the completed size.
+     */
+    fun progressOfSize(): Pair<Long, Long> {
+        var cs = 0L
+        var ts = 0L
+        tasks.map { it.progress() }.forEach {
+            cs += it.first
+            ts += it.second
+        }
+        return Pair(cs, ts)
+    }
+
+    /**
+     * Resolves the download group.
+     *
+     * This method blocks until all tasks are processed, either successful or failed.
+     *
+     * @return Whether all underlying tasks have succeeded.
+     */
+    fun resolve(): Boolean =
+        executorService.invokeAll(tasks.map { Callable { it.resolve() } }).all { it.get() }
+            .also { executorService.shutdown() }
+
+    /**
+     * Resolves the download group.
+     * Throws an exception if any underlying task fails.
+     *
+     * This method blocks until all tasks are processed, either successful or failed.
+     */
+    fun resolveOrThrow() {
+        val futures = executorService.invokeAll(tasks.map { Callable { it.resolveOrThrow() } })
+        executorService.shutdown()
+        futures.forEach { it.get() }
+    }
+}
+
+/**
+ * Calculates the percentage of the pair (first / second).
+ */
+fun Pair<Number, Number>.asPercentage(): Double =
+    if (second.toDouble() == 0.0) Double.NaN else first.toDouble() / second.toDouble()
 
 // String comparison ignoring case
 private fun String.equalsIgnoreCase(other: String?): Boolean = this.lowercase() == other?.lowercase()
