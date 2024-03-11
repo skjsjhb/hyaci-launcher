@@ -6,6 +6,9 @@ import kotlin.test.assertEquals
 class FilesTest {
     @Test
     fun `Generate Checksum`() {
-        assertEquals("1eba7caf09a39110ad2f542e3ed8700d1a69c6d3", checksumOf("LICENSE", "sha1"))
+        assertEquals(
+            "251364b90b8f139c16eb5d5ce376dfa697cba6cd",
+            checksumOf("gradle/wrapper/gradle-wrapper.jar", "sha1")
+        )
     }
 }
