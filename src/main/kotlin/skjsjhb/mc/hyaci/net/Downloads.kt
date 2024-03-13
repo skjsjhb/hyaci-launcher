@@ -3,6 +3,7 @@ package skjsjhb.mc.hyaci.net
 import skjsjhb.mc.hyaci.sys.Options
 import skjsjhb.mc.hyaci.util.*
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.io.OutputStream
 import java.net.URI
 import java.nio.file.Files
@@ -11,6 +12,7 @@ import java.nio.file.StandardOpenOption
 import java.security.NoSuchAlgorithmException
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -21,11 +23,6 @@ enum class DownloadTaskStatus {
      * The task is created and ready to be scheduled.
      */
     READY,
-
-    /**
-     * The task has been committed to the pool, but not yet started.
-     */
-    COMMITTED,
 
     /**
      * The task is now active and transferring data.
@@ -41,6 +38,11 @@ enum class DownloadTaskStatus {
      * The file already exists and the action is skipped.
      */
     SKIPPED,
+
+    /**
+     * The task is canceled.
+     */
+    CANCELED,
 
     /**
      * The transfer has failed, either an I/O exception occurred, or the validation did not pass.
@@ -61,12 +63,7 @@ class DownloadTask(private val artifact: Artifact) {
         @Synchronized
         set
 
-    /**
-     * Whether this task is optional.
-     *
-     * An optional task will not throw an exception if it fails.
-     */
-    var optional: Boolean = false
+    private var hostThread: Thread = Thread.currentThread()
 
     // There is no atomic version of ULong, but Long is still usually longer than any file length
     private var totalSize = AtomicLong(artifact.size().toLong())
@@ -102,28 +99,58 @@ class DownloadTask(private val artifact: Artifact) {
      * Resolves the download task, blocks until it's completed.
      */
     fun resolve(): Boolean {
+        hostThread = Thread.currentThread()
+
         status = DownloadTaskStatus.ACTIVE
         info("Now $url")
 
-        while (tries > 0) {
-            tries--
+        if (alreadyExists()) {
+            info("Hit $url")
+            status = DownloadTaskStatus.SKIPPED
+            return true
+        }
 
-            runCatching {
-                if (alreadyExists()) {
-                    info("Hit $url")
-                    status = DownloadTaskStatus.SKIPPED
-                    return true
-                }
+        while (tries > 0) {
+            // Harmony interrupt check
+            if (Thread.currentThread().isInterrupted) {
+                status = DownloadTaskStatus.CANCELED
+                warn("Cancelled $url")
+                return false
+            }
+
+            // Perform a single try
+            tries--
+            try {
                 retrieve()
                 validateOrThrow()
                 status = DownloadTaskStatus.DONE
                 info("Got $url")
                 return true
-            }.onFailure { warn("Unable to download $url, $tries tries remain", it) } // And try again
+            } catch (e: InterruptedIOException) {
+                status = DownloadTaskStatus.CANCELED
+                warn("Cancelled $url", e)
+                return false
+            } catch (e: Exception) {
+                warn("Unable to download $url, $tries tries remain", e)
+            }
+            // And try again
         }
         status = DownloadTaskStatus.FAILED
         warn("Abandoned $url")
         return false
+    }
+
+    /**
+     * Cancels the task by interrupting the host thread.
+     *
+     * Cancellation will happen during the string transformation.
+     * Interrupts are not accepted when connecting or validating.
+     */
+    fun cancel() {
+        if (hostThread == Thread.currentThread()) {
+            warn("Cancellation from the same thread is usually unwanted")
+        }
+        hostThread.interrupt()
     }
 
     /**
@@ -150,7 +177,6 @@ class DownloadTask(private val artifact: Artifact) {
         url.openConnection().run {
             connect()
             debug("Connected to ${url.host}:${url.port.takeIf { it != -1 } ?: url.defaultPort}")
-
             if (contentLengthLong > 0) {
                 totalSize.set(contentLengthLong)
                 debug("Content length is $totalSize")
@@ -160,7 +186,7 @@ class DownloadTask(private val artifact: Artifact) {
 
             debug("Start transferring stream data")
 
-            inputStream.use { input ->
+            getInputStream().use { input ->
                 Files.newOutputStream(
                     path,
                     StandardOpenOption.WRITE,
@@ -171,6 +197,8 @@ class DownloadTask(private val artifact: Artifact) {
                         completedSize.set(it.bytesTransferred)
                         speed0.set(it.speed)
                     }
+                }.let { // The monitor will close the backed stream on close
+                    InterruptibleOutputStream(it)
                 }.use { output -> input.transferTo(output) }
             }
         }
@@ -232,7 +260,10 @@ class DownloadTask(private val artifact: Artifact) {
  * @param artifacts Artifacts to handle.
  */
 class DownloadGroup(artifacts: Set<Artifact>) {
-    val tasks: Set<DownloadTask> = mutableSetOf<DownloadTask>().apply { artifacts.forEach { add(DownloadTask(it)) } }
+    val tasks: Set<DownloadTask> =
+        mutableSetOf<DownloadTask>()
+            .apply { artifacts.forEach { add(DownloadTask(it)) } }
+            .also { debug("Created download group of ${it.size} tasks") }
 
     private val executorService =
         Executors.newWorkStealingPool(Options.getInt("downloads.poolSize", 32).clampMin(1))
@@ -243,15 +274,31 @@ class DownloadGroup(artifacts: Set<Artifact>) {
     fun speed(): Long = tasks.fold(0L) { s, t -> s + t.speed() }
 
     /**
+     * Cancels this group of tasks, stopping new tasks from being started and tries to stop existing tasks.
+     *
+     * Tasks are stopped by interrupting the host thread of the task.
+     * Any I/O operation that is not completed will stop, leaving possibly corrupted files.
+     * They might be overridden on retries.
+     *
+     * May trigger an exception on any blocking [resolve] and [resolveOrThrow].
+     *
+     * Blocks until all active tasks are stopped.
+     */
+    fun cancel() {
+        executorService.shutdownNow()
+        executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS)
+    }
+
+    /**
      * Gets the progress in terms of the completed tasks.
      */
-    fun progressOfCount(): Pair<Int, Int> =
+    fun progressByCount(): Pair<Int, Int> =
         Pair(tasks.fold(0) { s, t -> if (t.finished()) s + 1 else s }, tasks.size)
 
     /**
      * Gets the progress in terms of the completed size.
      */
-    fun progressOfSize(): Pair<Long, Long> {
+    fun progressBySize(): Pair<Long, Long> {
         var cs = 0L
         var ts = 0L
         tasks.map { it.progress() }.forEach {
@@ -296,6 +343,33 @@ private fun String.equalsIgnoreCase(other: String?): Boolean = this.lowercase() 
 
 // Interval of sampling
 private const val meterSampleInterval = 100
+
+// Throws and exception when the current thread is interrupted
+private class InterruptibleOutputStream(private val origin: OutputStream) : OutputStream() {
+    private fun throwIfInterrupted() {
+        if (Thread.currentThread().isInterrupted) throw InterruptedIOException("Interrupted")
+    }
+
+    override fun write(b: Int) {
+        throwIfInterrupted()
+        origin.write(b)
+    }
+
+    override fun write(b: ByteArray, off: Int, len: Int) {
+        throwIfInterrupted()
+        origin.write(b, off, len)
+    }
+
+    override fun write(b: ByteArray) {
+        throwIfInterrupted()
+        origin.write(b)
+    }
+
+    override fun close() {
+        origin.close()
+        super.close()
+    }
+}
 
 // Meters the transferred bytes of a stream
 private class MeteredOutputStream(

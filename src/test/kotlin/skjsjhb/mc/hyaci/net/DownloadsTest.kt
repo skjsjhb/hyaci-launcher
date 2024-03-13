@@ -6,6 +6,7 @@ import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ExecutionException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -76,5 +77,31 @@ class DownloadsTest {
                 Files.delete(Path.of(it))
             }
         }
+    }
+
+    @Test
+    fun `Interrupt Downloading`() {
+        val task = DownloadTask(
+            artifactOf(
+                "https://piston-data.mojang.com/v1/objects/099bf3a8ad10d4a4ca8acc3f7347458ed7db16ec/client.jar",
+                "client.jar"
+            )
+        )
+
+        val flag = AtomicBoolean(false)
+        Thread {
+            Thread.sleep(100) // Hopefully the file is still downloading
+            while (!flag.get()) task.cancel()
+        }.start()
+        try {
+            task.resolve()
+        } catch (_: Exception) {
+        } finally {
+            flag.set(true)
+        }
+
+        Files.delete(Path.of("client.jar"))
+
+        assertEquals(DownloadTaskStatus.CANCELED, task.status)
     }
 }
