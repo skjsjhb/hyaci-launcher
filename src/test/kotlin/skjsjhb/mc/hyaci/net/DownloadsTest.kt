@@ -32,7 +32,7 @@ class DownloadsTest {
         val task2 = DownloadTask(a)
         task2.resolveOrThrow()
         assertEquals(DownloadTaskStatus.SKIPPED, task2.status)
-        Files.delete(Path.of("client.jar"))
+        Files.deleteIfExists(Path.of("client.jar"))
     }
 
     @Test
@@ -48,7 +48,7 @@ class DownloadsTest {
             val grp = DownloadGroup(it)
             assertTrue { grp.resolve() }
             listOf("24w10a.json", "24w09a.json", "24w07a.json", "24w06a.json").forEach {
-                Files.delete(Path.of(it))
+                Files.deleteIfExists(Path.of(it))
             }
         }
     }
@@ -74,7 +74,7 @@ class DownloadsTest {
 
             listOf("24w10a.json", "24w09a.json", "24w07a.json", "24w06a.json").forEach {
                 assertTrue { Files.exists(Path.of(it)) }
-                Files.delete(Path.of(it))
+                Files.deleteIfExists(Path.of(it))
             }
         }
     }
@@ -91,7 +91,7 @@ class DownloadsTest {
         val flag = AtomicBoolean(false)
         Thread {
             Thread.sleep(100) // Hopefully the file is still downloading
-            while (!flag.get()) task.cancel()
+            task.cancel()
         }.start()
         try {
             task.resolve()
@@ -100,7 +100,7 @@ class DownloadsTest {
             flag.set(true)
         }
 
-        Files.delete(Path.of("client.jar"))
+        Files.deleteIfExists(Path.of("client.jar"))
 
         assertEquals(DownloadTaskStatus.CANCELED, task.status)
     }

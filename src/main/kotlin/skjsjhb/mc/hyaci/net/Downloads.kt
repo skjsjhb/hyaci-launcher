@@ -3,7 +3,7 @@ package skjsjhb.mc.hyaci.net
 import skjsjhb.mc.hyaci.sys.Options
 import skjsjhb.mc.hyaci.util.*
 import java.io.IOException
-import java.io.InterruptedIOException
+import java.io.InputStream
 import java.io.OutputStream
 import java.net.URI
 import java.nio.file.Files
@@ -13,6 +13,7 @@ import java.security.NoSuchAlgorithmException
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -79,6 +80,12 @@ class DownloadTask(private val artifact: Artifact) {
     // Atomic wrapper of speed
     private var speed0 = AtomicLong(0)
 
+    private var inputStream0: InputStream? = null
+
+    private var outputStream0: OutputStream? = null
+
+    private val canceled = AtomicBoolean(false)
+
     /**
      * Gets the speed of the current task.
      */
@@ -111,8 +118,8 @@ class DownloadTask(private val artifact: Artifact) {
         }
 
         while (tries > 0) {
-            // Harmony interrupt check
-            if (Thread.currentThread().isInterrupted) {
+            // Checks for cancellation
+            if (canceled.get()) {
                 status = DownloadTaskStatus.CANCELED
                 warn("Cancelled $url")
                 return false
@@ -126,11 +133,12 @@ class DownloadTask(private val artifact: Artifact) {
                 status = DownloadTaskStatus.DONE
                 info("Got $url")
                 return true
-            } catch (e: InterruptedIOException) {
-                status = DownloadTaskStatus.CANCELED
-                warn("Cancelled $url", e)
-                return false
             } catch (e: Exception) {
+                if (canceled.get()) {
+                    status = DownloadTaskStatus.CANCELED
+                    warn("Cancelled $url")
+                    return false
+                }
                 warn("Unable to download $url, $tries tries remain", e)
             }
             // And try again
@@ -141,16 +149,17 @@ class DownloadTask(private val artifact: Artifact) {
     }
 
     /**
-     * Cancels the task by interrupting the host thread.
+     * Cancels the task.
      *
-     * Cancellation will happen during the string transformation.
-     * Interrupts are not accepted when connecting or validating.
+     * The cancel flag will first be set, then all active streams will be closed forcefully.
+     * An [IOException] may throw when the task is canceled at the point of transferring data.
      */
     fun cancel() {
-        if (hostThread == Thread.currentThread()) {
-            warn("Cancellation from the same thread is usually unwanted")
-        }
-        hostThread.interrupt()
+        canceled.set(true)
+
+        // Forcefully close the streams
+        inputStream0?.close()
+        outputStream0?.close()
     }
 
     /**
@@ -177,6 +186,11 @@ class DownloadTask(private val artifact: Artifact) {
         url.openConnection().run {
             connect()
             debug("Connected to ${url.host}:${url.port.takeIf { it != -1 } ?: url.defaultPort}")
+
+            if (canceled.get()) {
+                throw IOException("Canceled")
+            }
+
             if (contentLengthLong > 0) {
                 totalSize.set(contentLengthLong)
                 debug("Content length is $totalSize")
@@ -186,6 +200,8 @@ class DownloadTask(private val artifact: Artifact) {
 
             debug("Start transferring stream data")
 
+            inputStream0 = getInputStream()
+
             getInputStream().use { input ->
                 Files.newOutputStream(
                     path,
@@ -193,12 +209,11 @@ class DownloadTask(private val artifact: Artifact) {
                     StandardOpenOption.TRUNCATE_EXISTING,
                     StandardOpenOption.CREATE
                 ).let { // The meter will close the backed stream on close
+                    outputStream0 = it
                     MeteredOutputStream(it) {
                         completedSize.set(it.bytesTransferred)
                         speed0.set(it.speed)
                     }
-                }.let { // The monitor will close the backed stream on close
-                    InterruptibleOutputStream(it)
                 }.use { output -> input.transferTo(output) }
             }
         }
@@ -276,15 +291,13 @@ class DownloadGroup(artifacts: Set<Artifact>) {
     /**
      * Cancels this group of tasks, stopping new tasks from being started and tries to stop existing tasks.
      *
-     * Tasks are stopped by interrupting the host thread of the task.
      * Any I/O operation that is not completed will stop, leaving possibly corrupted files.
-     * They might be overridden on retries.
-     *
-     * May trigger an exception on any blocking [resolve] and [resolveOrThrow].
+     * This may also trigger an exception on any blocking [resolve] and [resolveOrThrow].
      *
      * Blocks until all active tasks are stopped.
      */
     fun cancel() {
+        tasks.forEach { it.cancel() }
         executorService.shutdownNow()
         executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS)
     }
@@ -343,33 +356,6 @@ private fun String.equalsIgnoreCase(other: String?): Boolean = this.lowercase() 
 
 // Interval of sampling
 private const val meterSampleInterval = 100
-
-// Throws and exception when the current thread is interrupted
-private class InterruptibleOutputStream(private val origin: OutputStream) : OutputStream() {
-    private fun throwIfInterrupted() {
-        if (Thread.currentThread().isInterrupted) throw InterruptedIOException("Interrupted")
-    }
-
-    override fun write(b: Int) {
-        throwIfInterrupted()
-        origin.write(b)
-    }
-
-    override fun write(b: ByteArray, off: Int, len: Int) {
-        throwIfInterrupted()
-        origin.write(b, off, len)
-    }
-
-    override fun write(b: ByteArray) {
-        throwIfInterrupted()
-        origin.write(b)
-    }
-
-    override fun close() {
-        origin.close()
-        super.close()
-    }
-}
 
 // Meters the transferred bytes of a stream
 private class MeteredOutputStream(
