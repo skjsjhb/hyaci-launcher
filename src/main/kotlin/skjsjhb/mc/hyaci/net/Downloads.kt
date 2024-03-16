@@ -202,6 +202,8 @@ class DownloadTask(private val artifact: Artifact) {
 
             inputStream0 = getInputStream()
 
+            Files.createDirectories(path.parent)
+
             getInputStream().use { input ->
                 Files.newOutputStream(
                     path,
