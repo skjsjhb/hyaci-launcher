@@ -44,6 +44,20 @@ interface Vfs {
     fun asset(hash: String): Path
 
     /**
+     * Gets the path to legacy asset file.
+     *
+     * This method exists to maintain compatibility with pre-1.6 versions.
+     */
+    fun assetLegacy(fileName: String): Path
+
+    /**
+     * Gets the path to resource-mapped asset file.
+     *
+     * This method exists to maintain compatibility with pre-1.6 versions.
+     */
+    fun assetMapToResources(fileName: String): Path
+
+    /**
      * Gets the path to the given asset index.
      */
     fun assetIndex(id: String): Path

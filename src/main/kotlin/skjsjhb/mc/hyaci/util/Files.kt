@@ -1,7 +1,10 @@
 package skjsjhb.mc.hyaci.util
 
+import java.io.File
 import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.security.MessageDigest
+import java.util.zip.ZipInputStream
 
 private const val bufferSize = 512
 
@@ -28,4 +31,23 @@ fun checksumOf(f: String, algo: String): String =
         }.toString().lowercase()
     }
 
+/**
+ * Unpacks a zip file.
+ */
+fun unzip(f: String, out: String) {
+    ZipInputStream(FileInputStream(f)).use { zip ->
+        var ent = zip.nextEntry
+        while (ent != null) {
+            val fileName = ent.name
+            val newFilePath = "$out/$fileName"
+
+            val outputFile = File(newFilePath)
+            outputFile.parentFile.mkdirs()
+
+            FileOutputStream(outputFile).use { zip.transferTo(it) }
+
+            ent = zip.nextEntry
+        }
+    }
+}
 

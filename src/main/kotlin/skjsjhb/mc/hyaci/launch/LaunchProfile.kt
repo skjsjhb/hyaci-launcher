@@ -3,9 +3,7 @@ package skjsjhb.mc.hyaci.launch
 import kotlinx.serialization.json.*
 import skjsjhb.mc.hyaci.net.Artifact
 import skjsjhb.mc.hyaci.sys.canonicalOSName
-import skjsjhb.mc.hyaci.util.debug
-import skjsjhb.mc.hyaci.util.info
-import skjsjhb.mc.hyaci.util.warn
+import skjsjhb.mc.hyaci.util.*
 import skjsjhb.mc.hyaci.vfs.Vfs
 import java.nio.file.Files
 
@@ -182,21 +180,6 @@ fun loadLaunchProfile(id: String, getter: (id: String) -> String): LaunchProfile
     }
     return head!!
 }
-
-// Gets JSON object by keys split with dots, also execute a lambda
-private fun JsonElement.gets(id: String): JsonElement? {
-    val names = id.split(".")
-    var current: JsonElement = this
-    for (k in names) {
-        if (current !is JsonObject) return null
-        current = current.jsonObject[k] ?: return null
-    }
-    return current
-}
-
-// Gets JSON string by keys split with dots, falls back to empty string
-private fun JsonElement.getString(id: String, def: String = ""): String =
-    gets(id).let { if (it is JsonPrimitive && it.isString) it.content else def }
 
 /**
  * An implementation of [LaunchProfile] based on vanilla JSON format.
