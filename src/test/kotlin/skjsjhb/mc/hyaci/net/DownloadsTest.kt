@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
 class DownloadsTest {
     @Test
     fun `Download File`() {
-        val a = artifactOf(
+        val a = Artifact.of(
             "https://piston-data.mojang.com/v1/objects/099bf3a8ad10d4a4ca8acc3f7347458ed7db16ec/client.jar",
             "client.jar",
             25122499UL,
@@ -43,7 +43,7 @@ class DownloadsTest {
             "https://piston-meta.mojang.com/v1/packages/121163bc6624810b57362543bf3606d0747c61a7/24w07a.json",
             "https://piston-meta.mojang.com/v1/packages/532610f1e06dabec430702ed04b82a045b7091a4/24w06a.json"
         ).map {
-            artifactOf(it, Path.of(URI(it).toURL().path).fileName.toString())
+            Artifact.of(it, Path.of(URI(it).toURL().path).fileName.toString())
         }.toSet().let {
             val grp = DownloadGroup(it)
             assertTrue { grp.resolve() }
@@ -62,7 +62,7 @@ class DownloadsTest {
             "https://piston-meta.mojang.com/v1/packages/121163bc6624810b57362543bf3606d0747c61a7/24w07a.json",
             "https://piston-meta.mojang.com/v1/packages/532610f1e06dabec430702ed04b82a045b7091a4/24w06a.json"
         ).map {
-            artifactOf(it, Path.of(URI(it).toURL().path).fileName.toString())
+            Artifact.of(it, Path.of(URI(it).toURL().path).fileName.toString())
         }.toSet().let {
             val grp = DownloadGroup(it)
 
@@ -82,7 +82,7 @@ class DownloadsTest {
     @Test
     fun `Interrupt Downloading`() {
         val task = DownloadTask(
-            artifactOf(
+            Artifact.of(
                 "https://piston-data.mojang.com/v1/objects/099bf3a8ad10d4a4ca8acc3f7347458ed7db16ec/client.jar",
                 "client.jar"
             )

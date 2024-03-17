@@ -40,7 +40,7 @@ class Game(private val launchPack: LaunchPack) {
     private val logBuffer: Queue<String> = ConcurrentLinkedQueue()
 
     // Cached profile
-    private val profile = loadLaunchProfile(launchPack.id, launchPack.fs)
+    private val profile = LaunchProfile.load(launchPack.id, launchPack.fs)
 
     /**
      * Accesses the log buffer via a shared [Stream].

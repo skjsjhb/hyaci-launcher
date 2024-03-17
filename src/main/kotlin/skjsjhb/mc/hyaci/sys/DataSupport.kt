@@ -26,7 +26,7 @@ private const val dataDirName = "Hyaci Launcher"
 private val dataPathRoot: Path by lazy {
     (System.getProperty("hyaci.dataPath")?.let {
         Path.of(it)
-    } ?: when (canonicalOSName()) {
+    } ?: when (Canonical.osName()) {
         "windows" ->
             Stream.of("LOCALAPPDATA", "APPDATA")
                 .map { System.getenv(it) }

@@ -28,14 +28,16 @@ interface Artifact {
      * An empty string indicates no checksum.
      */
     fun checksum(): String
-}
 
-/**
- * Create an artifact with plain values.
- */
-fun artifactOf(url: String, path: String, size: ULong = 0UL, checksum: String = ""): Artifact = object : Artifact {
-    override fun url(): String = url
-    override fun path(): String = path
-    override fun size(): ULong = size
-    override fun checksum(): String = checksum
+    companion object ArtifactUtils {
+        /**
+         * Create an artifact with plain values.
+         */
+        fun of(url: String, path: String, size: ULong = 0UL, checksum: String = ""): Artifact = object : Artifact {
+            override fun url(): String = url
+            override fun path(): String = path
+            override fun size(): ULong = size
+            override fun checksum(): String = checksum
+        }
+    }
 }

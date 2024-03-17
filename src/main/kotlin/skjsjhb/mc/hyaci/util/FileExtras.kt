@@ -13,7 +13,7 @@ private const val bufferSize = 512
  *
  * The resulted hash string is in lowercase, encoded as HEX.
  */
-fun checksumOf(f: String, algo: String): String =
+fun checksum(f: String, algo: String): String =
     MessageDigest.getInstance(algo).apply {
         FileInputStream(f).use {
             val bytes = ByteArray(bufferSize)
@@ -38,14 +38,10 @@ fun unzip(f: String, out: String) {
     ZipInputStream(FileInputStream(f)).use { zip ->
         var ent = zip.nextEntry
         while (ent != null) {
-            val fileName = ent.name
-            val newFilePath = "$out/$fileName"
-
-            val outputFile = File(newFilePath)
-            outputFile.parentFile.mkdirs()
-
-            FileOutputStream(outputFile).use { zip.transferTo(it) }
-
+            File("$out/${ent.name}").let {
+                it.mkdirs()
+                FileOutputStream(it).use { zip.transferTo(it) }
+            }
             ent = zip.nextEntry
         }
     }

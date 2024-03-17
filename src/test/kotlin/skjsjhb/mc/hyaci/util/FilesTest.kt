@@ -8,7 +8,7 @@ class FilesTest {
     fun `Generate Checksum`() {
         assertEquals(
             "251364b90b8f139c16eb5d5ce376dfa697cba6cd",
-            checksumOf("gradle/wrapper/gradle-wrapper.jar", "sha1")
+            checksum("gradle/wrapper/gradle-wrapper.jar", "sha1")
         )
     }
 }

@@ -141,7 +141,6 @@ class DownloadTask(private val artifact: Artifact) {
                 }
                 warn("Unable to download $url, $tries tries remain", e)
             }
-            // And try again
         }
         status = DownloadTaskStatus.FAILED
         warn("Abandoned $url")
@@ -231,7 +230,7 @@ class DownloadTask(private val artifact: Artifact) {
     // Validates the file
     // Validation based on option `downloads.validation`
     private fun validate(): Boolean =
-        info("Validating $url").let {
+        debug("Validating $url").let {
             when (Options.getString("downloads.validation", "checksum")) {
                 "checksum" -> validateChecksum()
                 "size" -> validateSize()
@@ -246,7 +245,7 @@ class DownloadTask(private val artifact: Artifact) {
         }.let {
             val (algo, expected) = it.split("=")
             val actual = try {
-                checksumOf(artifact.path(), algo)
+                checksum(artifact.path(), algo)
             } catch (e: NoSuchAlgorithmException) {
                 warn("Unsupported algorithm $algo, switching to size validation", e)
                 return validateSize()

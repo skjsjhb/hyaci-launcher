@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 class LaunchProfileTest {
     @Test
     fun `Profile Linking`() {
-        loadLaunchProfile("fabric-loader-0.15.6-1.20.4") {
+        LaunchProfile.load("fabric-loader-0.15.6-1.20.4") {
             javaClass.getResource("/$it.json")?.readText() ?: ""
         }.apply {
             assertEquals("fabric-loader-0.15.6-1.20.4", id())
@@ -22,7 +22,7 @@ class LaunchProfileTest {
 
     @Test
     fun `Legacy Profile Loading`() {
-        loadLaunchProfile("1.12.2") { javaClass.getResource("/1.12.2.json")!!.readText() }
+        LaunchProfile.load("1.12.2") { javaClass.getResource("/1.12.2.json")!!.readText() }
             .apply {
                 assertTrue { gameArguments().isNotEmpty() }
                 assertTrue { jvmArguments().isNotEmpty() }

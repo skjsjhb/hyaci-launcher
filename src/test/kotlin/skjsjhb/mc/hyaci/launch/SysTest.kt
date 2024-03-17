@@ -1,6 +1,6 @@
 package skjsjhb.mc.hyaci.launch
 
-import skjsjhb.mc.hyaci.sys.canonicalOSName
+import skjsjhb.mc.hyaci.sys.Canonical
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -8,9 +8,9 @@ class SysTest {
     @Test
     fun `Retrieve OS Name`() {
         System.setProperty("os.name", "macOS Ultimate")
-        assertEquals("osx", canonicalOSName())
+        assertEquals("osx", Canonical.osName())
 
         System.setProperty("os.name", "Hyaci Linux") // This is imaginary
-        assertEquals("linux", canonicalOSName())
+        assertEquals("linux", Canonical.osName())
     }
 }

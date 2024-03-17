@@ -2,7 +2,7 @@ package skjsjhb.mc.hyaci.launch
 
 import kotlinx.serialization.json.*
 import skjsjhb.mc.hyaci.net.Artifact
-import skjsjhb.mc.hyaci.sys.canonicalOSName
+import skjsjhb.mc.hyaci.sys.Canonical
 import skjsjhb.mc.hyaci.util.*
 import skjsjhb.mc.hyaci.vfs.Vfs
 import java.nio.file.Files
@@ -91,6 +91,57 @@ interface LaunchProfile {
      * Gets the version type.
      */
     fun versionType(): String
+
+    companion object LaunchProfileUtils {
+
+        /**
+         * Loads a launch profile from given [Vfs] instance.
+         *
+         * Profiles are parsed and linked.
+         * Dependencies are fetched from the given [Vfs].
+         *
+         * @param id The ID of the profile to be loaded.
+         * @param fs A [Vfs] filesystem containing the profile.
+         */
+        fun load(id: String, fs: Vfs): LaunchProfile = load(id) { Files.readString(fs.profile(it)) }
+
+        /**
+         * Loads a set of profiles using given getter.
+         *
+         * Profiles are parsed and linked.
+         * Dependencies are fetched using the specified getter method.
+         *
+         * @param id The ID of the profile to be loaded.
+         * @param getter A getter for retrieving profile content by the given ID.
+         */
+        fun load(id: String, getter: (id: String) -> String): LaunchProfile {
+            info("Loading profile $id")
+
+            var currentDep = id
+            val visitedDep = mutableSetOf<String>()
+
+            var head: LaunchProfile? = null
+
+            // Repeatedly links head -> currentDep
+            while (currentDep.isNotBlank()) {
+                debug("Parsing profile $currentDep")
+
+                // Detect circular dependency
+                if (currentDep in visitedDep) {
+                    warn("Circular dependency detected, dependency $currentDep, early returning.")
+                    break
+                }
+
+                visitedDep.add(currentDep)
+
+                // Link profile
+                val base = JsonLaunchProfile(Json.parseToJsonElement(getter(currentDep)))
+                head = linkProfile(base, head)
+                currentDep = base.inheritsFrom()
+            }
+            return head!!
+        }
+    }
 }
 
 /**
@@ -131,54 +182,6 @@ interface Argument {
      * Rules associated.
      */
     fun rules(): List<Rule>
-}
-
-/**
- * Loads a launch profile from given [Vfs] instance.
- *
- * Profiles are parsed and linked.
- * Dependencies are fetched from the given [Vfs].
- *
- * @param id The ID of the profile to be loaded.
- * @param fs A [Vfs] filesystem containing the profile.
- */
-fun loadLaunchProfile(id: String, fs: Vfs): LaunchProfile = loadLaunchProfile(id) { Files.readString(fs.profile(it)) }
-
-/**
- * Loads a set of profiles using given getter.
- *
- * Profiles are parsed and linked.
- * Dependencies are fetched using the specified getter method.
- *
- * @param id The ID of the profile to be loaded.
- * @param getter A getter for retrieving profile content by the given ID.
- */
-fun loadLaunchProfile(id: String, getter: (id: String) -> String): LaunchProfile {
-    info("Loading profile $id")
-
-    var currentDep = id
-    val visitedDep = mutableSetOf<String>()
-
-    var head: LaunchProfile? = null
-
-    // Repeatedly links head -> currentDep
-    while (currentDep.isNotBlank()) {
-        debug("Parsing profile $currentDep")
-
-        // Detect circular dependency
-        if (currentDep in visitedDep) {
-            warn("Circular dependency detected, dependency $currentDep, early returning.")
-            break
-        }
-
-        visitedDep.add(currentDep)
-
-        // Link profile
-        val base = JsonLaunchProfile(Json.parseToJsonElement(getter(currentDep)))
-        head = linkProfile(base, head)
-        currentDep = base.inheritsFrom()
-    }
-    return head!!
 }
 
 /**
@@ -306,7 +309,7 @@ class JsonLibrary(private val src: JsonElement) : Library {
     }
 
     override fun nativeArtifact(): Artifact? {
-        var nativesId = src.getString("natives.${canonicalOSName()}").ifBlank { return null }
+        var nativesId = src.getString("natives.${Canonical.osName()}").ifBlank { return null }
 
         // 32-bit is dead now, assume 64-bit for native libraries
         nativesId = nativesId.replace("\${arch}", "64")
