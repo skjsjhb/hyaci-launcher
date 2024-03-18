@@ -4,7 +4,8 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 @Suppress("SameParameterValue")
-private fun getCaller(offset: Long = 1) = StackWalker.getInstance().walk { it.skip(offset).findFirst().get() }.className
+private fun getCaller(offset: Long = 1) =
+    StackWalker.getInstance().walk { it.skip(offset).findFirst().get() }.className.split("$")[0]
 
 private fun getLogger(): Logger = LoggerFactory.getLogger(getCaller(4))
 
