@@ -1,5 +1,7 @@
 package skjsjhb.mc.hyaci.util
 
+import lzma.sdk.lzma.Decoder
+import lzma.streams.LzmaInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -45,6 +47,21 @@ fun unzip(f: String, out: String) {
                 }
             }
             ent = zip.nextEntry
+        }
+    }
+}
+
+/**
+ * Decompresses a lzma file.
+ *
+ * New directories are not automatically created.
+ */
+fun unlzma(f: String, out: String) {
+    FileInputStream(f).use { fi ->
+        LzmaInputStream(fi, Decoder()).use { input ->
+            FileOutputStream(out).use { output ->
+                input.transferTo(output)
+            }
         }
     }
 }
