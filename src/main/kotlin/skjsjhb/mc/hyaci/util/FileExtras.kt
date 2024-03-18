@@ -38,9 +38,11 @@ fun unzip(f: String, out: String) {
     ZipInputStream(FileInputStream(f)).use { zip ->
         var ent = zip.nextEntry
         while (ent != null) {
-            File("$out/${ent.name}").let {
-                it.mkdirs()
-                FileOutputStream(it).use { zip.transferTo(it) }
+            if (!ent.isDirectory) {
+                File("$out/${ent.name}").let {
+                    it.parentFile.mkdirs()
+                    FileOutputStream(it).use { zip.transferTo(it) }
+                }
             }
             ent = zip.nextEntry
         }
