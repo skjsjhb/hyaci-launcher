@@ -209,15 +209,15 @@ class JsonLaunchProfile(private val src: JsonElement) : LaunchProfile {
         return libs.map { JsonLibrary(it) }
     }
 
-    override fun inheritsFrom(): String = src.gets("inheritsFrom")?.jsonPrimitive?.content ?: ""
+    override fun inheritsFrom(): String = src.getString("inheritsFrom")
 
     private fun genArguments(name: String): List<Argument> =
         src.gets("arguments.$name")?.run { jsonArray.map { JsonArgument(it) } } ?: emptyList()
 
     private fun loggingArgument(): Argument? {
-        return src.gets("logging.client.argument")?.let {
+        return src.getString("logging.client.argument").takeIf { it.isNotBlank() }?.let {
             object : Argument {
-                override fun values(): List<String> = listOf(it.jsonPrimitive.content)
+                override fun values(): List<String> = listOf(it)
                 override fun rules(): List<Rule> = emptyList()
             }
         }
@@ -237,8 +237,8 @@ class JsonLaunchProfile(private val src: JsonElement) : LaunchProfile {
         }
 
     override fun gameArguments(): List<Argument> =
-        src.gets("minecraftArguments")?.run {
-            jsonPrimitive.content.split(" ").map {
+        src.getString("minecraftArguments").takeIf { it.isNotBlank() }?.let {
+            it.split(" ").map {
                 object : Argument {
                     override fun values(): List<String> = listOf(it)
                     override fun rules(): List<Rule> = emptyList()
@@ -256,7 +256,7 @@ class JsonLaunchProfile(private val src: JsonElement) : LaunchProfile {
 
     override fun jreComponent(): String = src.getString("javaVersion.component")
 
-    override fun jreVersion(): Int = src.gets("javaVersion.majorVersion")?.jsonPrimitive?.int ?: 0
+    override fun jreVersion(): Int = src.getInt("javaVersion.majorVersion")
 
     override fun clientArtifact(): Artifact? = src.gets("downloads.client")?.let { JsonArtifact(it) }
 
@@ -325,7 +325,7 @@ class JsonArtifact(private val src: JsonElement) : Artifact {
 
     override fun path(): String = src.getString("path").ifBlank { src.getString("id") }
 
-    override fun size(): ULong = src.gets("size")?.jsonPrimitive?.long?.toULong() ?: 0UL
+    override fun size(): ULong = src.getLong("size").toULong()
 
     override fun checksum(): String = "sha1=${src.getString("sha1").ifBlank { return "" }}"
 }
@@ -344,7 +344,7 @@ class JsonArgument(private val src: JsonElement) : Argument {
 
     override fun rules(): List<Rule> {
         if (src is JsonObject) {
-            src.gets("rules")?.takeIf { it is JsonArray }?.jsonArray?.map { JsonRule(it) }?.let { return it }
+            src.getArray("rules")?.map { JsonRule(it) }?.let { return it }
         }
         return emptyList()
     }

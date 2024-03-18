@@ -30,6 +30,8 @@ dependencies {
 
     implementation("com.h2database:h2:2.2.224")
 
+    implementation("me.friwi:jcefmaven:122.1.10")
+
     runtimeOnly("org.fusesource.jansi:jansi:1.18")
 
     testImplementation("com.google.code.findbugs:jsr305:3.0.2")

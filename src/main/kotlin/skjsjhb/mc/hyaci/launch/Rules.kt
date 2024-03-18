@@ -1,8 +1,9 @@
 package skjsjhb.mc.hyaci.launch
 
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import skjsjhb.mc.hyaci.util.getObject
+import skjsjhb.mc.hyaci.util.getString
 
 /**
  * Represents rules in the profile.
@@ -37,12 +38,12 @@ class JsonRule(private val src: JsonElement) : Rule {
         mutableListOf<Pair<String, String>>().apply {
             // Collect properties with qualified name
             listOf("os", "features").forEach {
-                src.jsonObject[it]?.jsonObject
-                    ?.map { (k, v) -> Pair("$it.$k", v.jsonPrimitive.content) }
-                    ?.let { addAll(it) }
+                src.getObject(it)?.let {
+                    addAll(it.map { (k, v) -> Pair("$it.$k", v.jsonPrimitive.content) })
+                }
+
             }
         }.all { (k, e) -> rv[k]?.matches(e.toRegex()) ?: false }
 
-    override fun action(): Boolean =
-        src.jsonObject["action"]?.jsonPrimitive?.content == "allow"
+    override fun action(): Boolean = src.getString("action") == "allow"
 }
