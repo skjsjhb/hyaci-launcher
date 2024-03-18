@@ -26,4 +26,9 @@ object Canonical {
      * Gets the version.
      */
     fun osVersion(): String = System.getProperty("os.version") ?: "unknown"
+
+    /**
+     * Checks if the architecture is likely to be an ARM variant.
+     */
+    fun isArm(): Boolean = osArch().let { it.contains("arm") || it.contains("aarch") }
 }

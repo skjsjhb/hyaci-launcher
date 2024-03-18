@@ -8,5 +8,6 @@ enum class Sources(val value: String) {
     OAUTH_API("https://login.live.com/oauth20_token.srf"),
     OAUTH_WEB("https://login.live.com/oauth20_authorize.srf?client_id=00000000402b5328&response_type=code&scope=service%3A%3Auser.auth.xboxlive.com%3A%3AMBI_SSL&redirect_uri=https%3A%2F%2Flogin.live.com%2Foauth20_desktop.srf"),
     MOJANG_LOGIN_API("https://api.minecraftservices.com/authentication/login_with_xbox"),
-    MOJANG_PROFILE_API("https://api.minecraftservices.com/minecraft/profile")
+    MOJANG_PROFILE_API("https://api.minecraftservices.com/minecraft/profile"),
+    MOJANG_JRE_MANIFEST("https://piston-meta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json")
 }

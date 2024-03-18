@@ -20,6 +20,11 @@ object Requests {
     }
 
     /**
+     * Retrieves content and parses it as JSON document.
+     */
+    fun getJson(url: String): JsonElement = Json.parseToJsonElement(getString(url))
+
+    /**
      * Retrieves content as string, with HTTP headers.
      */
     fun getString(url: String, headers: Map<String, String>): String {
