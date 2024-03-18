@@ -37,11 +37,10 @@ class JsonRule(private val src: JsonElement) : Rule {
     override fun accepts(rv: Map<String, String>): Boolean =
         mutableListOf<Pair<String, String>>().apply {
             // Collect properties with qualified name
-            listOf("os", "features").forEach {
-                src.getObject(it)?.let {
-                    addAll(it.map { (k, v) -> Pair("$it.$k", v.jsonPrimitive.content) })
+            listOf("os", "features").forEach { tag ->
+                src.getObject(tag)?.let {
+                    addAll(it.map { (k, v) -> Pair("$tag.$k", v.jsonPrimitive.content) })
                 }
-
             }
         }.all { (k, e) -> rv[k]?.matches(e.toRegex()) ?: false }
 
