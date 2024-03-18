@@ -25,7 +25,7 @@ class DownloadsTest {
         task.resolveOrThrow()
         assertTrue { task.finished() }
         assertEquals(DownloadTaskStatus.DONE, task.status)
-        assertEquals(1.0, task.progress().asPercentage())
+        assertEquals(1.0, task.progress().toValue())
         assertTrue { task.speed() > 0 }
         assertTrue { Files.exists(Path.of("client.jar")) }
 

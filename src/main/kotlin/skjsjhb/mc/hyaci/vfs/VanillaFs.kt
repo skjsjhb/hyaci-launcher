@@ -22,6 +22,10 @@ open class VanillaFs(private val root: Path) : Vfs {
 
     override fun assetRoot(): Path = resolve("assets")
 
+    override fun assetRootLegacy(): Path = resolve("assets/virtual/legacy")
+
+    override fun assetRootMapToResources(): Path = resolve("resources")
+
     override fun asset(hash: String): Path = resolve("assets/objects/${hash.slice(0..1)}/$hash")
 
     override fun assetLegacy(fileName: String): Path = resolve("assets/virtual/legacy/$fileName")

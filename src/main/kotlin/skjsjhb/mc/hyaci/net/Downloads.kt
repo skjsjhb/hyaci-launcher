@@ -347,13 +347,13 @@ class DownloadGroup(artifacts: Set<Artifact>) {
 }
 
 /**
- * Calculates the percentage of the pair (first / second).
+ * Calculates the percentage value of the pair (first / second).
  */
-fun Pair<Number, Number>.asPercentage(): Double =
+fun Pair<Number, Number>.toValue(): Double =
     if (second.toDouble() == 0.0) Double.NaN else first.toDouble() / second.toDouble()
 
 // String comparison ignoring case
-private fun String.equalsIgnoreCase(other: String?): Boolean = this.lowercase() == other?.lowercase()
+private fun String.equalsIgnoreCase(other: String?): Boolean = lowercase() == other?.lowercase()
 
 // Interval of sampling
 private const val meterSampleInterval = 100

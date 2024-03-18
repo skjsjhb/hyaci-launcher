@@ -39,6 +39,16 @@ interface Vfs {
     fun assetRoot(): Path
 
     /**
+     * Gets the legacy asset root.
+     */
+    fun assetRootLegacy(): Path
+
+    /**
+     * Gets the path to resource-mapped asset root.
+     */
+    fun assetRootMapToResources(): Path
+
+    /**
      * Gets the path to an asset file.
      */
     fun asset(hash: String): Path

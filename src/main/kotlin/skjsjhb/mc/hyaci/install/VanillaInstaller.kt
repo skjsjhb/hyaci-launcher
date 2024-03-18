@@ -1,6 +1,9 @@
 package skjsjhb.mc.hyaci.install
 
-import kotlinx.serialization.json.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import skjsjhb.mc.hyaci.launch.JsonLaunchProfile
 import skjsjhb.mc.hyaci.launch.LaunchProfile
 import skjsjhb.mc.hyaci.launch.accepts
@@ -39,7 +42,7 @@ class VanillaInstaller(private val id: String, private val fs: Vfs) : Installer 
 
         debug("Profile url is $profileUrl")
 
-        val profileContent = Requests.string(profileUrl)
+        val profileContent = Requests.getString(profileUrl)
         profile = JsonLaunchProfile(Json.parseToJsonElement(profileContent))
 
         fs.profile(id).let {
@@ -56,12 +59,12 @@ class VanillaInstaller(private val id: String, private val fs: Vfs) : Installer 
             // Asset index and assets
             profile.assetIndexArtifact()?.let {
                 debug("Resolving asset index ${it.path()}")
-                val assetIndexContent = Requests.string(it.url())
+                val assetIndexContent = Requests.getString(it.url())
                 val assetIndexObject = Json.parseToJsonElement(assetIndexContent)
 
                 // Handles pre-1.6 assets
-                val mapToResources = assetIndexObject.gets("map_to_resources")?.jsonPrimitive?.boolean == true
-                val isLegacy = profile.assetId() == "pre-1.6"
+                val mapToResources = assetIndexObject.getBoolean("map_to_resources")
+                val isLegacy = profile.assetId() == "pre-1.6" || profile.assetId() == "legacy"
 
                 // The asset index will be resolved at the post-installation stage
                 fs.assetIndex(it.path()).let {
@@ -83,7 +86,7 @@ class VanillaInstaller(private val id: String, private val fs: Vfs) : Installer 
                 assetIndexObject.gets("objects")?.let {
                     it.jsonObject.entries.forEach { (fileName, v) ->
                         val hash = v.getString("hash")
-                        val size = v.gets("size")?.jsonPrimitive?.int ?: 0
+                        val size = v.getLong("size")
                         val url = Sources.VANILLA_RESOURCES.value + "/${hash.substring(0..1)}/$hash"
 
                         val path = when {
@@ -140,15 +143,16 @@ class VanillaInstaller(private val id: String, private val fs: Vfs) : Installer 
                 )
             }
         }.let {
-            info("Fetching files of ${profile.id()}")
+            info("Fetching files for ${profile.id()} (${it.size})")
             DownloadGroup(it).resolveOrThrow()
         }
     }
 
     // Runs post-install tasks
     private fun postInstall() {
+        info("Running post-install tasks")
         // Unpack natives
-        info("Unpacking optional native libraries")
+        debug("Unpacking optional native libraries")
         profile.libraries()
             .filter { it.rules() accepts osRuleValues }
             .mapNotNull { it.nativeArtifact() }
@@ -169,7 +173,7 @@ private val osRuleValues by lazy {
 
 private val versionManifest: JsonElement by lazy {
     info("Synchronizing version manifest")
-    Json.parseToJsonElement(Requests.string(Sources.VANILLA_VERSION_MANIFEST.value)).also {
+    Json.parseToJsonElement(Requests.getString(Sources.VANILLA_VERSION_MANIFEST.value)).also {
         info("Version manifest updated")
     }
 }

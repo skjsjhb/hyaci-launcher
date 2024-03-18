@@ -1,10 +1,14 @@
 package skjsjhb.mc.hyaci.launch
 
+import kotlinx.serialization.json.Json
+import skjsjhb.mc.hyaci.auth.Account
 import skjsjhb.mc.hyaci.util.debug
+import skjsjhb.mc.hyaci.util.getBoolean
 import skjsjhb.mc.hyaci.util.info
 import skjsjhb.mc.hyaci.util.warn
 import skjsjhb.mc.hyaci.vfs.Vfs
 import java.io.File
+import java.nio.file.Files
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.stream.Stream
@@ -21,7 +25,8 @@ data class LaunchPack(
     val id: String,
     val fs: Vfs,
     val rv: Map<String, String>,
-    val java: String
+    val java: String,
+    val account: Account
 )
 
 // The limitation of backlog buffer
@@ -95,6 +100,7 @@ class Game(private val launchPack: LaunchPack) {
     private fun commitLog(s: String) {
         while (logBuffer.size > backlogLimit) logBuffer.poll()
         logBuffer.offer(s)
+        println(s)
     }
 
     // Binds listeners and continually pulls data from stdout and stderr.
@@ -114,6 +120,13 @@ class Game(private val launchPack: LaunchPack) {
         }
     }
 
+    /**
+     * Decides whether the assets should be mapped to the resource folder.
+     */
+    private fun shouldAssetMap(): Boolean =
+        Json.parseToJsonElement(Files.readString(launchPack.fs.assetIndex(profile.assetId())))
+            .getBoolean("map_to_resources")
+
     // Assemble arguments and apply template values
     private fun createCommand(): List<String> {
         val variableMap = launchPack.run {
@@ -121,14 +134,20 @@ class Game(private val launchPack: LaunchPack) {
                 "version_name" to profile.version(),
                 "game_directory" to fs.gameDir().toString(),
                 "assets_root" to fs.assetRoot().toString(),
+                "game_assets" to (if (shouldAssetMap()) fs.assetRootMapToResources() else fs.assetRootLegacy()).toString(),
                 "assets_index_name" to profile.assetId(),
                 "user_type" to "mojang",
                 "version_type" to profile.versionType(),
                 "natives_directory" to fs.natives(profile.id()).toString(),
                 "classpath" to createClassPath(),
                 "path" to fs.logConfig(profile.loggingArtifact()?.path() ?: "").toString(),
-                "auth_player_name" to "Player", // TODO authenticate
-                "auth_uuid" to UUID.nameUUIDFromBytes("OfflinePlayer:Player".toByteArray()).toString()
+                "auth_player_name" to account.username(),
+                "auth_uuid" to account.uuid(),
+                "auth_session" to account.token(),
+                "auth_access_token" to account.token(),
+                "auth_xuid" to account.xuid(),
+                "user_properties" to "[]", // 1.7 Twitch compatibility
+                "clientid" to UUID.randomUUID().toString()
             )
         }
 
