@@ -24,7 +24,7 @@ private const val dbName = "hyaci"
 private const val dataDirName = "Hyaci Launcher"
 
 private val dataPathRoot: Path by lazy {
-    (System.getProperty("hyaci.dataPath")?.let {
+    (System.getProperty("hyaci.data.path")?.let {
         Path.of(it)
     } ?: when (Canonical.osName()) {
         "windows" ->
