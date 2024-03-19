@@ -2,6 +2,7 @@ package skjsjhb.mc.hyaci.net
 
 import skjsjhb.mc.hyaci.sys.Options
 import skjsjhb.mc.hyaci.util.*
+import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -133,6 +134,10 @@ class DownloadTask(private val artifact: Artifact) {
                 status = DownloadTaskStatus.DONE
                 info("Got $url")
                 return true
+            } catch (e: FileNotFoundException) {
+                // It's not likely to get solved by retrying
+                warn("Resource at $url does not exist, skipped retries", e)
+                break
             } catch (e: Exception) {
                 if (canceled.get()) {
                     status = DownloadTaskStatus.CANCELED
