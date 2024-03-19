@@ -218,8 +218,13 @@ class DownloadTask(private val artifact: Artifact) {
                 }.use { output -> input.transferTo(output) }
             }
         }
-
-        debug("Transfer ended, $completedSize bytes received")
+        if (!canceled.get()) {
+            debug("Transfer ended, $completedSize bytes received")
+        } else {
+            // Normally when the stream is closed, an exception may be thrown
+            // If it did not and this line is executed, then we throw one manually
+            throw IOException("Cancel flag set before transfer completes")
+        }
     }
 
     // Validates the file and throw an exception if failed
