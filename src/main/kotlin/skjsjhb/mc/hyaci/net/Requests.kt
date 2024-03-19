@@ -2,7 +2,6 @@ package skjsjhb.mc.hyaci.net
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
-import java.io.IOException
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
@@ -10,47 +9,44 @@ import java.net.URI
 
 object Requests {
     /**
-     * Retrieves content as string.
-     *
-     * This method is not an overload of [getString] with headers.
-     * The latter one only resolves HTTP requests.
+     * Retrieves arbitrary URL content as string.
      */
     fun getString(url: String): String = URI(url).toURL().openStream().use {
         InputStreamReader(it).readText()
     }
 
     /**
-     * Retrieves content and parses it as JSON document.
+     * Retrieves arbitrary URL content and parses it as JSON document.
      */
     fun getJson(url: String): JsonElement = Json.parseToJsonElement(getString(url))
 
     /**
-     * Retrieves content as string, with HTTP headers.
+     * Retrieves content over HTTP as string, with HTTP headers.
      */
-    fun getString(url: String, headers: Map<String, String>): String {
-        val connection = URI(url).toURL().openConnection().also {
-            if (it !is HttpURLConnection) throw IOException("Cannot GET from $url")
-        } as HttpURLConnection
-        headers.forEach { (k, v) -> connection.setRequestProperty(k, v) }
-        return InputStreamReader(connection.inputStream).use { it.readText() }
-    }
+    fun getString(url: String, headers: Map<String, String>): String =
+        openHttpConnection(url).run {
+            headers.forEach { (k, v) -> setRequestProperty(k, v) }
+            InputStreamReader(inputStream).use { it.readText() }
+        }
 
     /**
-     * Post the given content, and gets the response body as string.
+     * Post the given content over HTTP, and gets the response body as string.
+     *
+     * Responses are returned as-is, regardless of the response code.
      */
-    fun postString(url: String, headers: Map<String, String>, content: String): String {
-        val connection = URI(url).toURL().openConnection().also {
-            if (it !is HttpURLConnection) throw IOException("Cannot POST to $url")
-        } as HttpURLConnection
-        connection.requestMethod = "POST"
-        headers.forEach { (k, v) -> connection.setRequestProperty(k, v) }
-        connection.doOutput = true
-        OutputStreamWriter(connection.outputStream).use { it.write(content) }
-        return InputStreamReader(connection.inputStream).use { it.readText() }
-    }
+    fun postString(url: String, headers: Map<String, String>, content: String): String =
+        openHttpConnection(url).run {
+            requestMethod = "POST"
+            doOutput = true
+
+            headers.forEach { (k, v) -> setRequestProperty(k, v) }
+
+            OutputStreamWriter(outputStream).use { it.write(content) }
+            InputStreamReader(inputStream).use { it.readText() }
+        }
 
     /**
-     * Post the content as JSON, and gets the response body as JSON.
+     * Post the content as JSON over HTTP, and gets the response body as JSON.
      */
     fun postJson(url: String, headers: Map<String, String>, content: JsonElement): JsonElement {
         val jsonHeaders = mutableMapOf<String, String>().apply {
@@ -62,7 +58,13 @@ object Requests {
     }
 
     /**
-     * Post the content as JSON with default headers, and gets the response body as JSON.
+     * Post the content as JSON over HTTP, with default headers, and gets the response body as JSON.
      */
     fun postJson(url: String, content: JsonElement): JsonElement = postJson(url, emptyMap(), content)
+
+    // Checks and opens an HTTP connection
+    private fun openHttpConnection(url: String): HttpURLConnection =
+        URI(url).toURL().openConnection().also {
+            if (it !is HttpURLConnection) throw IllegalArgumentException("Not an HTTP URL: $url")
+        } as HttpURLConnection
 }

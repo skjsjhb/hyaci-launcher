@@ -2,7 +2,6 @@
 
 package skjsjhb.mc.hyaci
 
-import skjsjhb.mc.hyaci.install.JreInstaller
 import skjsjhb.mc.hyaci.util.info
 
 /**
@@ -10,7 +9,6 @@ import skjsjhb.mc.hyaci.util.info
  */
 fun main() {
     showLicense()
-    JreInstaller("java-runtime-alpha").install()
 }
 
 private fun showLicense() {

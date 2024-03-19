@@ -18,7 +18,6 @@ import java.io.Serializable
 import java.net.URI
 import java.util.*
 import java.util.concurrent.CountDownLatch
-import javax.naming.AuthenticationException
 import javax.swing.JFrame
 import javax.swing.WindowConstants
 
@@ -39,7 +38,8 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
     private var uuid: String = ""
     private var playerName: String = ""
 
-    private fun String.blankThenThrow(what: String): String = ifBlank { throw AuthenticationException("Invalid $what") }
+    private fun String.blankThenThrow(what: String): String =
+        ifBlank { throw IllegalArgumentException("Invalid $what") }
 
     override fun update() {
         updateToken()
@@ -62,14 +62,15 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
                 return
             }
         }
-        if (oauthCode.isBlank()) browserLogin()
-        runCatching {
-            fetchOAuthToken() // The code here may be outdated
-            return
-        }
 
+        runCatching {
+            if (oauthToken.isNotBlank()) {
+                fetchOAuthToken() // The code here may be outdated
+                return
+            }
+        }
         // Get the new code (no more chances to fail!)
-        browserLogin()
+        oauthCode.ifBlank { browserLogin() }
         fetchOAuthToken()
     }
 
@@ -161,7 +162,7 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
     }
 
     // Opens a browser and blocks until user login
-    fun browserLogin() {
+    private fun browserLogin() {
         val app = CefAppBuilder().run {
             setInstallDir(dataPathOf("jcef-bundle").toFile())
             setProgressHandler { state, percent ->
@@ -188,10 +189,11 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
         client.addLoadHandler(object : CefLoadHandlerAdapter() {
             override fun onLoadStart(browser: CefBrowser, frame0: CefFrame, transition0: CefRequest.TransitionType) {
                 if (browser.url.startsWith(loginCompletePrefix)) {
-                    oauthCode =
-                        URI(browser.url).toURL().query
-                            .split("&")
-                            .associate { it.split("=").let { it[0] to it[1] } }["code"] ?: ""
+                    oauthCode = URI(browser.url).toURL().query
+                        .split("&")
+                        .associate {
+                            it.split("=").toPair()
+                        }["code"] ?: ""
                     debug("Code retrieved, closing browser window")
                     latch.countDown()
                 }
@@ -220,6 +222,8 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
 
         oauthCode.blankThenThrow("OAuth code")
     }
+
+    private fun <T> List<T>.toPair(): Pair<T, T> = Pair(get(0), get(1))
 
     companion object {
         private const val serialVersionUID = 1L

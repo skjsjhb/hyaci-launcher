@@ -15,5 +15,6 @@
             <AppenderRef ref="Console"/>
             <AppenderRef ref="File"/>
         </Root>
+        <Logger name="com.microsoft.credentialstorage" level="OFF"/>
     </Loggers>
 </Configuration>

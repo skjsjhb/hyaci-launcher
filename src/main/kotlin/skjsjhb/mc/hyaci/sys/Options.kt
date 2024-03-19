@@ -11,18 +11,10 @@ object Options {
     private const val keyColumnName = "KEI"
     private const val valueColumnName = "VAL"
 
-    private val connection by lazy { dbConnection() }
+    private val connection by lazy { openDBConnection() }
 
     init {
-        runCatching {
-            connection.createStatement().executeUpdate(
-                """
-                CREATE TABLE IF NOT EXISTS 
-                $tableName ($keyColumnName VARCHAR PRIMARY KEY NOT NULL, $valueColumnName TEXT NOT NULL)
-                """
-            )
-            debug("Table $tableName opened")
-        }.onFailure { warn("Unable to open table $tableName") }
+        createOptionsTable()
     }
 
     /**
@@ -36,7 +28,9 @@ object Options {
             ?: runCatching {
                 connection.prepareStatement("SELECT $valueColumnName FROM $tableName WHERE $keyColumnName = ?")
                     .apply { setString(1, key) }
-                    .executeQuery()?.takeIf { it.next() }?.getString(1)
+                    .use {
+                        it.executeQuery()?.takeIf { it.next() }?.getString(1)
+                    }
             }.onFailure {
                 // This is only executed when SQL exceptions are thrown (not for empty keys)
                 warn("Exception when reading option $key", it)
@@ -66,18 +60,26 @@ object Options {
                 connection
                     .prepareStatement("DELETE FROM $tableName WHERE $keyColumnName = ?")
                     .apply { setString(1, key) }
-                    .executeUpdate()
-                    .also { debug("Removed option $key") }
+                    .use {
+                        it.execute().also { debug("Removed option $key") }
+                    }
             else
                 connection
                     .prepareStatement("MERGE INTO $tableName ($keyColumnName, $valueColumnName) VALUES (?, ?)")
                     .apply {
                         setString(1, key)
                         setString(2, value.toString())
-                    }.executeUpdate()
-                    .also { debug("Altered option $key = $value") }
+                    }.use {
+                        it.execute().also { debug("Altered option $key = $value") }
+                    }
 
         }.onFailure { warn("Unable to update option $key", it) }
+    }
+
+    private fun createOptionsTable() {
+        connection.createStatement().use {
+            it.executeUpdate("CREATE TABLE IF NOT EXISTS $tableName ($keyColumnName VARCHAR PRIMARY KEY NOT NULL, $valueColumnName TEXT NOT NULL)")
+        }
     }
 }
 

@@ -15,7 +15,7 @@ fun dataPathOf(rel: String): Path = dataPathRoot.resolve(rel).toAbsolutePath().n
 /**
  * Gets a new connection to the main database.
  */
-fun dbConnection(): Connection =
+fun openDBConnection(): Connection =
     DriverManager.getConnection("jdbc:h2:${dataPathOf(dbName)};TRACE_LEVEL_FILE=0;DB_CLOSE_DELAY=-1")
         .also { debug("Opened connection to local database") }
 

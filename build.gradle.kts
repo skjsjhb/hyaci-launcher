@@ -25,14 +25,11 @@ dependencies {
     implementation("org.apache.logging.log4j:log4j-core:2.22.1")
     implementation("org.apache.logging.log4j:log4j-api:2.23.1")
     implementation("org.apache.logging.log4j:log4j-slf4j2-impl:2.23.1")
-
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-
     implementation("com.h2database:h2:2.2.224")
-
     implementation("me.friwi:jcefmaven:122.1.10")
-
     implementation("com.github.jponge:lzma-java:1.2")
+    implementation("com.microsoft:credential-secure-storage:1.0.0")
 
     runtimeOnly("org.fusesource.jansi:jansi:1.18")
 
