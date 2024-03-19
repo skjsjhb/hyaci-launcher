@@ -28,7 +28,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("com.h2database:h2:2.2.224")
     implementation("me.friwi:jcefmaven:122.1.10")
-    implementation("com.github.jponge:lzma-java:1.2")
+    implementation("com.github.jponge:lzma-java:1.3")
     implementation("com.microsoft:credential-secure-storage:1.0.0")
 
     runtimeOnly("org.fusesource.jansi:jansi:1.18")
