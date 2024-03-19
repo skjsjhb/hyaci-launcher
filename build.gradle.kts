@@ -48,6 +48,7 @@ tasks.test {
     jvmArgs("-Dlog4j.skipJansi=false")
     testLogging {
         events("passed", "skipped", "failed")
+        showStandardStreams = true
         showStackTraces = true
         exceptionFormat = TestExceptionFormat.FULL
     }
