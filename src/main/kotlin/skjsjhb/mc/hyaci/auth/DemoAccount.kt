@@ -13,7 +13,8 @@ class DemoAccount(private val name: String) : Account, Serializable {
 
     override fun username(): String = name
 
-    override fun uuid(): String = UUID.nameUUIDFromBytes("OfflinePlayer:$name".toByteArray()).toString()
+    override fun uuid(): String =
+        UUID.nameUUIDFromBytes("OfflinePlayer:$name".toByteArray()).toString().replace("-", "")
 
     override fun token(): String = "SUPER_SECRET_TOKEN_DO_NOT_USE_OR_YOU_WILL_BE_FIRED"
 
