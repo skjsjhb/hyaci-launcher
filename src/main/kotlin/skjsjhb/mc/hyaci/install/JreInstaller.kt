@@ -1,11 +1,11 @@
 package skjsjhb.mc.hyaci.install
 
+import skjsjhb.mc.hyaci.launch.JreManager
 import skjsjhb.mc.hyaci.net.Artifact
 import skjsjhb.mc.hyaci.net.DownloadGroup
 import skjsjhb.mc.hyaci.net.Requests
 import skjsjhb.mc.hyaci.sys.Canonical
 import skjsjhb.mc.hyaci.sys.Options
-import skjsjhb.mc.hyaci.sys.dataPathOf
 import skjsjhb.mc.hyaci.util.*
 import java.nio.file.Files
 import java.nio.file.Path
@@ -18,7 +18,7 @@ import java.util.concurrent.Executors
 class JreInstaller(private val componentName: String) : Installer {
     override fun install() {
         info("Installing runtime $componentName")
-        val rootDir = dataPathOf("runtimes/$componentName")
+        val rootDir = JreManager.getJavaHome(componentName)
         getFiles().let { files ->
             files.map {
                 Artifact.of(
@@ -65,7 +65,7 @@ class JreInstaller(private val componentName: String) : Installer {
         val componentKey = "${osPair()}.$componentName"
         val manifestUrl = jreManifest.getArray(componentKey)?.get(0)?.getString("manifest.url")
             ?: throw UnsupportedOperationException("No manifest found for $componentKey ")
-        
+
         return mutableSetOf<JreFile>().apply {
             // LZMA is not really faster, hence we leave an option here
             val lzmaEnabled = Options.getBoolean("installer.jre.lzma", false)
