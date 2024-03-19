@@ -8,16 +8,16 @@ import skjsjhb.mc.hyaci.util.info
 import skjsjhb.mc.hyaci.util.warn
 import java.nio.file.Files
 import java.security.SecureRandom
-import java.util.stream.Stream
+import java.util.*
 import javax.crypto.SecretKey
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 
-private const val phraseLength = 256L
+private const val phraseLength = 256
 private const val keyLength = 256
 private const val salt = "SUPER_SECRET_SALT_DO_NOT_SHARE_OR_YOU_WILL_BE_FIRED"
 private const val iterationCount = 10000
-private const val systemKeyName = "HyaciLauncherSystemKey"
+private const val systemKeyName = "HyaciLauncherSystemKeyV2"
 private const val systemKeyFile = "DO_NOT_SHARE_THIS"
 
 object Keys {
@@ -56,13 +56,10 @@ object Keys {
         }
     }
 
+    private fun ByteArray.encode(): CharArray = String(Base64.getEncoder().encode(this)).toCharArray()
+
     private fun generateSystemParaphrase(): CharArray =
-        SecureRandom().let { rand ->
-            Stream.generate { rand.nextInt().toChar() }
-                .limit(phraseLength)
-                .toArray { CharArray(it).toTypedArray() }
-                .toCharArray()
-        }
+        ByteArray(phraseLength).also { SecureRandom().nextBytes(it) }.encode()
 }
 
 
