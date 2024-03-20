@@ -19,6 +19,8 @@ class DemoAccount(private val name: String) : Account, Serializable {
     override fun token(): String = "SUPER_SECRET_TOKEN_DO_NOT_USE_OR_YOU_WILL_BE_FIRED"
 
     override fun xuid(): String = "SUPER_SECRET_XUID_DO_NOT_USE_OR_YOU_WILL_BE_FIRED"
+    
+    override fun validate(): Boolean = true
 
     companion object {
         private const val serialVersionUID = 1L

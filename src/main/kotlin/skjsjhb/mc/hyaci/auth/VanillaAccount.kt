@@ -9,7 +9,10 @@ import org.cef.handler.CefLoadHandlerAdapter
 import org.cef.network.CefRequest
 import skjsjhb.mc.hyaci.net.Requests
 import skjsjhb.mc.hyaci.sys.dataPathOf
-import skjsjhb.mc.hyaci.util.*
+import skjsjhb.mc.hyaci.util.Sources
+import skjsjhb.mc.hyaci.util.debug
+import skjsjhb.mc.hyaci.util.getString
+import skjsjhb.mc.hyaci.util.info
 import java.awt.Dimension
 import java.awt.Toolkit
 import java.awt.event.WindowAdapter
@@ -42,8 +45,8 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
         ifBlank { throw IllegalArgumentException("Invalid $what") }
 
     override fun update() {
-        updateToken()
-        fetchMojangToken()
+        updateOAuthToken()
+        updateTokens()
     }
 
     override fun username(): String = playerName
@@ -54,8 +57,14 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
 
     override fun xuid(): String = xuid
 
+    override fun validate(): Boolean =
+        runCatching {
+            updateProfileContent()
+            true
+        }.getOrDefault(false)
+
     // Updates the OAuth access token
-    private fun updateToken() {
+    private fun updateOAuthToken() {
         runCatching {
             if (refreshToken.isNotBlank()) {
                 refreshOAuthToken() // Try refresh first
@@ -97,8 +106,7 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
         }
     }
 
-    // Perform requests after the oauth token has been retrieved
-    private fun fetchMojangToken() {
+    private fun updateXblToken() {
         debug("Token -> XBL")
         Requests.postJson(Sources.XBL_API.value, buildJsonObject {
             putJsonObject("Properties") {
@@ -110,10 +118,11 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
             put("TokenType", "JWT")
         }).run {
             xblToken = getString("Token").blankThenThrow("XBL token")
-            userHash = getArray("DisplayClaims.xui")?.get(0)?.getString("uhs") ?: ""
-            userHash.blankThenThrow("user hash")
+            userHash = getString("DisplayClaims.xui.0.uhs").blankThenThrow("user hash")
         }
+    }
 
+    private fun updateXstsToken() {
         debug("XBL -> XSTS")
         Requests.postJson(Sources.XSTS_API.value, buildJsonObject {
             putJsonObject("Properties") {
@@ -125,7 +134,9 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
         }).run {
             xstsToken = getString("Token").blankThenThrow("XSTS token")
         }
+    }
 
+    private fun updateXuid() {
         debug("XBL -> XUID")
         Requests.postJson(Sources.XSTS_API.value, buildJsonObject {
             putJsonObject("Properties") {
@@ -135,17 +146,20 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
             put("RelyingParty", "http://xboxlive.com")
             put("TokenType", "JWT")
         }).run {
-            xuid = getArray("DisplayClaims.xui")?.get(0)?.getString("xid") ?: ""
-            xuid.blankThenThrow("XUID")
+            xuid = getString("DisplayClaims.xui.0.xid").blankThenThrow("XUID")
         }
+    }
 
+    private fun updateMojangToken() {
         debug("XSTS -> Mojang")
         Requests.postJson(Sources.MOJANG_LOGIN_API.value, buildJsonObject {
             put("identityToken", "XBL3.0 x=$userHash;$xstsToken")
         }).run {
             accessToken = getString("access_token").blankThenThrow("access token")
         }
+    }
 
+    private fun updateProfileContent() {
         debug("Mojang -> Profile")
         Requests.getString(
             Sources.MOJANG_PROFILE_API.value,
@@ -157,6 +171,15 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
             uuid = getString("id").blankThenThrow("UUID")
             playerName = getString("name").blankThenThrow("player name")
         }
+    }
+
+    // Perform requests after the oauth token has been retrieved
+    private fun updateTokens() {
+        updateXblToken()
+        updateXstsToken()
+        updateXuid()
+        updateMojangToken()
+        updateProfileContent()
 
         debug("Completed vanilla authentication")
     }

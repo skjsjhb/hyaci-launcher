@@ -63,8 +63,8 @@ class JreInstaller(private val componentName: String) : Installer {
 
     private fun getFiles(): Set<JreFile> {
         val componentKey = "${osPair()}.$componentName"
-        val manifestUrl = jreManifest.getArray(componentKey)?.get(0)?.getString("manifest.url")
-            ?: throw UnsupportedOperationException("No manifest found for $componentKey ")
+        val manifestUrl = jreManifest.getString("$componentKey.0.manifest.url")
+            .ifBlank { throw UnsupportedOperationException("No manifest found for $componentKey ") }
 
         return mutableSetOf<JreFile>().apply {
             // LZMA is not really faster, hence we leave an option here

@@ -28,4 +28,9 @@ interface Account {
      * Gets the XUID.
      */
     fun xuid(): String
+
+    /**
+     * Checks whether the credentials of the current account are valid.
+     */
+    fun validate(): Boolean
 }

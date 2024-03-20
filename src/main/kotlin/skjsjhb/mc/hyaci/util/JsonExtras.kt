@@ -9,8 +9,11 @@ fun JsonElement.gets(id: String): JsonElement? {
     val names = id.split(".")
     var current: JsonElement = this
     for (k in names) {
-        if (current !is JsonObject) return null
-        current = current.jsonObject[k] ?: return null
+        current = when (current) {
+            is JsonObject -> current.jsonObject[k] ?: return null
+            is JsonArray -> current.jsonArray[k.toIntOrNull() ?: return null]
+            else -> return null
+        }
     }
     return current
 }
