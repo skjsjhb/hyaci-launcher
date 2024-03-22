@@ -1,5 +1,8 @@
 package skjsjhb.mc.hyaci.vfs
 
+import java.io.ObjectInputStream
+import java.io.ObjectOutputStream
+import java.io.Serializable
 import java.nio.file.Path
 
 /**
@@ -8,9 +11,12 @@ import java.nio.file.Path
  * This class is open for the convenience of creating other FSes based on
  * the vanilla structure.
  *
+ * @param name The name of the VFS.
  * @param root The root directory (i.e., game directory).
  */
-open class VanillaFs(private val root: Path) : Vfs {
+open class VanillaFs(private var name: String, private var root: Path) : Vfs, Serializable {
+    override fun name(): String = name
+
     override fun profile(id: String): Path = resolve("versions/$id/$id.json")
 
     override fun client(id: String): Path = resolve("versions/$id/$id.jar")
@@ -39,4 +45,18 @@ open class VanillaFs(private val root: Path) : Vfs {
     override fun gameDir(): Path = resolve(".")
 
     override fun resolve(rel: String): Path = root.resolve(rel).toAbsolutePath().normalize()
+
+    private fun writeObject(o: ObjectOutputStream) {
+        o.writeObject(name)
+        o.writeObject(root.toString())
+    }
+
+    private fun readObject(i: ObjectInputStream) {
+        name = i.readObject() as String
+        root = Path.of(i.readObject() as String)
+    }
+
+    companion object {
+        private const val serialVersionUID = 1L
+    }
 }

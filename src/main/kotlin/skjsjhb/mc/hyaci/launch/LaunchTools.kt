@@ -19,13 +19,11 @@ import java.util.stream.Stream
  * @param id The ID of the profile to launch.
  * @param fs The virtual filesystem for path resolution.
  * @param rv Values used to match the rules.
- * @param java Path to java executable.
  */
 data class LaunchPack(
     val id: String,
     val fs: Vfs,
     val rv: Map<String, String>,
-    val java: String,
     val account: Account
 )
 
@@ -46,6 +44,9 @@ class Game(private val launchPack: LaunchPack) {
 
     // Cached profile
     private val profile = LaunchProfile.load(launchPack.id, launchPack.fs)
+
+    // Java executable
+    private val java = JreManager.getJavaExecutable(profile.jreComponent())
 
     /**
      * Accesses the log buffer via a shared [Stream].
@@ -77,7 +78,7 @@ class Game(private val launchPack: LaunchPack) {
         if (process != null) {
             throw IllegalStateException("A process has already been created")
         }
-        info("Starting using ${launchPack.java}")
+        info("Starting using $java")
         prepare()
         process = builder.start()
         info("Created game process ${process?.pid()}")
@@ -100,7 +101,6 @@ class Game(private val launchPack: LaunchPack) {
     private fun commitLog(s: String) {
         while (logBuffer.size > backlogLimit) logBuffer.poll()
         logBuffer.offer(s)
-        println(s)
     }
 
     // Binds listeners and continually pulls data from stdout and stderr.
@@ -152,7 +152,7 @@ class Game(private val launchPack: LaunchPack) {
         }
 
         return mutableListOf<String>().apply {
-            add(launchPack.java)
+            add(java.toString())
             profile.jvmArguments().filter { it.rules() accepts launchPack.rv }.forEach { addAll(it.values()) }
             add(profile.mainClass())
             profile.gameArguments().filter { it.rules() accepts launchPack.rv }.forEach { addAll(it.values()) }

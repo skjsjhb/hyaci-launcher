@@ -2,6 +2,9 @@
 
 package skjsjhb.mc.hyaci
 
+import skjsjhb.mc.hyaci.sys.Canonical
+import skjsjhb.mc.hyaci.ui.term.TerminalUiProvider
+import skjsjhb.mc.hyaci.util.err
 import skjsjhb.mc.hyaci.util.info
 
 /**
@@ -9,12 +12,17 @@ import skjsjhb.mc.hyaci.util.info
  */
 fun main() {
     showLicense()
+
+    Thread.setDefaultUncaughtExceptionHandler { t, e ->
+        err("Uncaught exception in thread ${t.name}", e)
+    }
+
+    TerminalUiProvider().launch()
 }
 
 private fun showLicense() {
     """
-    Hyaci Launcher 1.0
-    "Another place, another way."
+    ${Canonical.appName()} ${Canonical.appVersion()}
     -----
     Copyright (C) 2024 Ted "skjsjhb" Gao
     This program comes with ABSOLUTELY NO WARRANTY.

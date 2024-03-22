@@ -14,6 +14,11 @@ import java.nio.file.Path
  */
 interface Vfs {
     /**
+     * Gets the name of the VFS.
+     */
+    fun name(): String
+
+    /**
      * Gets the path to the version profile.
      */
     fun profile(id: String): Path

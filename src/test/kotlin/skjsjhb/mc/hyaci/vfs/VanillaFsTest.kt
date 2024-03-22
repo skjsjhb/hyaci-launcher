@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 class VanillaFsTest {
     @Test
     fun `VanillaFS Path Resolution`() {
-        VanillaFs(Path.of("./hyaci")).run {
+        VanillaFs("test", Path.of("./hyaci")).run {
             assertEquals(
                 Path.of("./hyaci/versions/1.20.4/1.20.4.json").toAbsolutePath().normalize(),
                 profile("1.20.4")

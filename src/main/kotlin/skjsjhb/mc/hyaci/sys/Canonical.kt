@@ -31,4 +31,14 @@ object Canonical {
      * Checks if the architecture is likely to be an ARM variant.
      */
     fun isArm(): Boolean = osArch().let { it.contains("arm") || it.contains("aarch") }
+
+    /**
+     * Gets the app version.
+     */
+    fun appVersion(): String = "1.0"
+
+    /**
+     * Gets the app name.
+     */
+    fun appName(): String = "Hyaci Launcher"
 }

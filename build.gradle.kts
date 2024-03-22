@@ -32,8 +32,7 @@ dependencies {
     implementation("me.friwi:jcefmaven:122.1.10")
     implementation("com.github.jponge:lzma-java:1.3")
     implementation("com.microsoft:credential-secure-storage:1.0.0")
-
-    runtimeOnly("org.fusesource.jansi:jansi:1.18")
+    implementation("org.fusesource.jansi:jansi:1.18")
 
     testImplementation("com.google.code.findbugs:jsr305:3.0.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
@@ -61,4 +60,8 @@ kotlin {
 application {
     mainClass = "skjsjhb.mc.hyaci.Main"
     applicationDefaultJvmArgs = listOf("-Dlog4j.skipJansi=false")
+}
+
+tasks.withType<JavaExec> {
+    standardInput = System.`in`
 }

@@ -1,0 +1,12 @@
+skjsjhb.mc.hyaci.ui.term.AboutCommandHandler
+skjsjhb.mc.hyaci.ui.term.ExitCommandHandler
+skjsjhb.mc.hyaci.ui.term.MakeFsCommandHandler
+skjsjhb.mc.hyaci.ui.term.ListFsCommandHandler
+skjsjhb.mc.hyaci.ui.term.MakeDemoAccountCommandHandler
+skjsjhb.mc.hyaci.ui.term.MakeVanillaAccountCommandHandler
+skjsjhb.mc.hyaci.ui.term.VanillaInstallerCommandHandler
+skjsjhb.mc.hyaci.ui.term.JreInstallerCommandHandler
+skjsjhb.mc.hyaci.ui.term.LaunchCommandHandler
+skjsjhb.mc.hyaci.ui.term.ListAccountCommandHandler
+skjsjhb.mc.hyaci.ui.term.RemoveAccountCommandHandler
+skjsjhb.mc.hyaci.ui.term.RemoveFsCommandHandler
