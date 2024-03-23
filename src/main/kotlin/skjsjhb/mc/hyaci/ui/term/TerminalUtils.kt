@@ -51,18 +51,6 @@ fun askConfirm(what: String): Boolean {
     }
 }
 
-private class OutOfPatienceException : RuntimeException("I've told you that!")
-
-private val beingAnnoyedExpressions: List<String> = listOf(
-    "",
-    "That is mandatory.",
-    "Please, I really need it.",
-    "Let's just get this done.",
-    "Well, if I MEOW, will you answer it?",
-    "MEOW~",
-    "How can I convince you that this cannot be omitted?!",
-    "Stop that!",
-    "It's too much for a joke!",
-    "I don't want to repeat again!",
-    "THIS IS THE LAST CHANCE."
-)
+fun requireConfirm(what: String) {
+    askConfirm(what).let { if (!it) throw IllegalStateException("Canceled") }
+}

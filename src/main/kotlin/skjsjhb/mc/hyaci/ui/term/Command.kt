@@ -14,16 +14,21 @@ interface Command {
     fun unnamed(): List<String>
 
     /**
+     * Gets an unnamed argument at given index.
+     */
+    fun unnamed(index: Int): String?
+
+    /**
      * Gets named arguments.
      */
-    fun named(key: String, def: String = ""): String
+    fun named(key: String): String?
 
     /**
      * Gets the argument of the given name and/or index. If not provided, then ask the user.
      */
     fun get(name: String, index: Int = -1): String {
         val s = if (index >= 0) unnamed().getOrNull(index) ?: "" else ""
-        return s.ifBlank { named(name) }.ifBlank { askMore(name) }
+        return s.ifBlank { named(name) }?.ifBlank { askMore(name) } ?: ""
     }
 
     /**
@@ -31,7 +36,7 @@ interface Command {
      */
     fun get(name: String, index: Int = -1, def: String): String {
         val s = if (index >= 0) unnamed().getOrNull(index) ?: "" else ""
-        return s.ifBlank { named(name) }.ifBlank { def }
+        return s.ifBlank { named(name) }?.ifBlank { def } ?: def
     }
 
     companion object CommandUtils {
@@ -73,5 +78,10 @@ private class StringCommand(src: String) : Command {
 
     override fun unnamed(): List<String> = unnamed
 
-    override fun named(key: String, def: String): String = named.getOrDefault(key, def)
+    override fun unnamed(index: Int): String? {
+        if (index < 0 || index >= unnamed.size) return null
+        return unnamed[index]
+    }
+
+    override fun named(key: String): String? = named.getOrDefault(key, null)
 }

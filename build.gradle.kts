@@ -33,6 +33,7 @@ dependencies {
     implementation("com.github.jponge:lzma-java:1.3")
     implementation("com.microsoft:credential-secure-storage:1.0.0")
     implementation("org.fusesource.jansi:jansi:1.18")
+    implementation(kotlin("reflect"))
 
     testImplementation("com.google.code.findbugs:jsr305:3.0.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test")

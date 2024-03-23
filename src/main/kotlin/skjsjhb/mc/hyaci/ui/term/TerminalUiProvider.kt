@@ -2,12 +2,10 @@ package skjsjhb.mc.hyaci.ui.term
 
 import org.fusesource.jansi.Ansi
 import org.fusesource.jansi.AnsiConsole
-import java.io.PrintStream
 
 class TerminalUiProvider {
     fun launch() {
         showHint()
-        filterStdout()
 
         while (true) {
             val cmd = nextCommand() ?: break
@@ -44,19 +42,6 @@ class TerminalUiProvider {
                 append(s.substring(0, s.length - 1))
             }
         }.toString()
-    }
-
-    // A hack to filter out irrelevant output for better user experience
-    private fun filterStdout() {
-        System.setOut(object : PrintStream(System.out) {
-            override fun println(x: String?) {
-                x?.let {
-                    // JCEF hardcoded output
-                    if (it.startsWith("initialize on") || it.startsWith("shutdown on")) return
-                }
-                super.println(x)
-            }
-        })
     }
 }
 

@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import skjsjhb.mc.hyaci.launch.JreManager
 import skjsjhb.mc.hyaci.launch.JsonLaunchProfile
 import skjsjhb.mc.hyaci.launch.LaunchProfile
 import skjsjhb.mc.hyaci.launch.accepts
@@ -30,9 +31,16 @@ class VanillaInstaller(private val id: String, private val fs: Vfs) : Installer 
 
         fetchProfile()
         fetchFiles()
+        installProfileJre()
         postInstall()
 
         info("Installed $id")
+    }
+
+    private fun installProfileJre() {
+        if (!JreManager.hasComponent(profile.jreComponent())) {
+            JreInstaller(profile.jreComponent()).install()
+        }
     }
 
     private fun fetchProfile() {
