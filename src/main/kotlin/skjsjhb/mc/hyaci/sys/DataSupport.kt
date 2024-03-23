@@ -24,7 +24,7 @@ fun openDBConnection(): Connection =
 
 private const val dbName = "hyaci"
 
-private const val dataDirName = "Hyaci Launcher"
+private const val dataDirName = "Hyaci Launcher/astral" // Avoid installation conflicting
 
 private val dataPathRoot: Path by lazy {
     (System.getProperty("hyaci.data.path")?.let {
