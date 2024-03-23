@@ -16,7 +16,6 @@ class RequestsTest {
             put("body", "bar")
             put("userId", 1)
         }).let {
-            println(it)
             assertEquals("foo", it.getString("title"))
             assertEquals("bar", it.getString("body"))
             assertNotNull(it.gets("id"))

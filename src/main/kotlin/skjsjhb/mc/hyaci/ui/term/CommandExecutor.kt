@@ -22,27 +22,24 @@ object CommandExecutor {
 
     fun addProcessor(what: CommandProcessor) {
         what::class.declaredMembers
-            .filter {
-                !it.name.startsWith("<") && !it.isSuspend && it.visibility == KVisibility.PUBLIC
-            }.forEach {
-                it.annotations.find { it is WithAdapters }
-                    ?.let { it as WithAdapters }?.adapters?.forEach { ArgumentAdapter.addAdapterClass(it) }
+            .filter { !it.name.startsWith("<") } // Properties
+            .filter { !it.isSuspend }
+            .filter { it.visibility == KVisibility.PUBLIC }
+            .forEach {
+                it.annotations.filterIsInstance<WithAdapters>().forEach {
+                    it.adapters.forEach {
+                        ArgumentAdapter.addAdapterClass(it)
+                    }
+                }
 
-                val usageString = it.annotations.find { it is Usage }
-                    ?.let { it as Usage }?.value ?: ""
+                val usageString = it.annotations.filterIsInstance<Usage>().firstOrNull()?.value ?: ""
 
-                val annotatedNames = it.annotations.find { it is CommandName }?.let { it as CommandName }?.names
-                if (annotatedNames != null) {
-                    annotatedNames.forEach { name ->
+                (it.annotations.filterIsInstance<CommandName>().firstOrNull()?.names ?: arrayOf(it.name))
+                    .forEach { name ->
                         handlers[name] = it
                         processors[name] = what
                         usage[name] = usageString
                     }
-                } else {
-                    handlers[it.name] = it
-                    processors[it.name] = what
-                    usage[it.name] = usageString
-                }
             }
     }
 
