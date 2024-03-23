@@ -33,6 +33,38 @@ class Accounts : CommandProcessor {
         addAccount(VanillaAccount(UUID.randomUUID().toString()).apply { update() })
     }
 
+    @WithAdapters(AccountLoader::class)
+    @CommandName("updac")
+    @Usage(
+        """
+        updac <account> - Update an account.
+            account - Name or UUID of an account, or their substring long enough to identify one.
+    """
+    )
+    fun updateAccount(account: Account) {
+        account.update()
+        tinfo("Account updated.")
+    }
+
+    @WithAdapters(AccountLoader::class)
+    @CommandName("seac")
+    @Usage(
+        """
+        seac <account> - View account credentials.
+            account - Name or UUID of an account, or their substring long enough to identify one. 
+    """
+    )
+    fun credentials(account: Account) {
+        twarn("WAIT!")
+        twarn("There is usually no reason to expose credentials of an account.")
+        twarn("Be aware, sharing credentials brings SEVERE risks!")
+        requireConfirm("I know what I'm doing!")
+        tinfo("Username: ${account.username()}")
+        tinfo("UUID: ${account.uuid()}")
+        tinfo("Access token: ${account.token()}")
+        twarn("==== DO NOT SHARE THE CONTENT ABOVE TO ANYONE ====")
+    }
+
     @CommandName("lsac")
     @Usage("lsac - List all accounts.")
     fun listAll() {
