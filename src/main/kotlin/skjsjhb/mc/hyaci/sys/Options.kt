@@ -1,6 +1,5 @@
 package skjsjhb.mc.hyaci.sys
 
-import skjsjhb.mc.hyaci.util.debug
 import skjsjhb.mc.hyaci.util.warn
 
 /**
@@ -55,25 +54,22 @@ object Options {
      * Puts an arbitrary object with default value. A `null` value will erase the key.
      */
     fun put(key: String, value: Any?) {
-        runCatching {
-            if (value == null)
-                connection
-                    .prepareStatement("DELETE FROM $tableName WHERE $keyColumnName = ?")
-                    .apply { setString(1, key) }
-                    .use {
-                        it.execute().also { debug("Removed option $key") }
-                    }
-            else
-                connection
-                    .prepareStatement("MERGE INTO $tableName ($keyColumnName, $valueColumnName) VALUES (?, ?)")
-                    .apply {
-                        setString(1, key)
-                        setString(2, value.toString())
-                    }.use {
-                        it.execute().also { debug("Altered option $key = $value") }
-                    }
-
-        }.onFailure { warn("Unable to update option $key", it) }
+        if (value == null)
+            connection
+                .prepareStatement("DELETE FROM $tableName WHERE $keyColumnName = ?")
+                .apply { setString(1, key) }
+                .use {
+                    it.execute()
+                }
+        else
+            connection
+                .prepareStatement("MERGE INTO $tableName ($keyColumnName, $valueColumnName) VALUES (?, ?)")
+                .apply {
+                    setString(1, key)
+                    setString(2, value.toString())
+                }.use {
+                    it.execute()
+                }
     }
 
     private fun createOptionsTable() {
