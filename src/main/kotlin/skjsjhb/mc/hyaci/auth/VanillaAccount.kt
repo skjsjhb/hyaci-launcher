@@ -2,6 +2,7 @@ package skjsjhb.mc.hyaci.auth
 
 import kotlinx.serialization.json.*
 import skjsjhb.mc.hyaci.net.Requests
+import skjsjhb.mc.hyaci.sys.Canonical
 import skjsjhb.mc.hyaci.sys.dataPathOf
 import skjsjhb.mc.hyaci.sys.forkClass
 import skjsjhb.mc.hyaci.util.Sources
@@ -174,7 +175,11 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
 
     // Opens a browser and blocks until user login
     private fun browserLogin() {
-        val authProc = forkClass("skjsjhb.mc.hyaci.auth.VanillaAccountHelper", listOf(internalId))
+        val authProc = forkClass(
+            "skjsjhb.mc.hyaci.auth.VanillaAccountHelper",
+            listOf(internalId),
+            if (Canonical.osName() == "osx") listOf("-XstartOnFirstThread") else emptyList()
+        )
 
         // Use error stream to avoid color escapes
         val lines = BufferedReader(InputStreamReader(authProc.errorStream)).lines()
@@ -182,6 +187,8 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
             if (l.startsWith("OAuth Code: ")) {
                 oauthCode = l.replace("OAuth Code: ", "")
                 break
+            } else {
+                println("Message from helper: $l")
             }
         }
         oauthCode.blankThenThrow("oauth code")
