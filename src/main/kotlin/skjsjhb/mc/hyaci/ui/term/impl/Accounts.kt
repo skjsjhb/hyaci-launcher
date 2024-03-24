@@ -5,6 +5,9 @@ import skjsjhb.mc.hyaci.auth.AccountManager
 import skjsjhb.mc.hyaci.auth.DemoAccount
 import skjsjhb.mc.hyaci.auth.VanillaAccount
 import skjsjhb.mc.hyaci.ui.term.*
+import skjsjhb.mc.hyaci.ui.term.compose.CommandName
+import skjsjhb.mc.hyaci.ui.term.compose.Usage
+import skjsjhb.mc.hyaci.ui.term.compose.WithAdapters
 import java.util.*
 
 @Suppress("unused")

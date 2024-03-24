@@ -5,7 +5,8 @@ import org.fusesource.jansi.AnsiConsole
 import java.io.InputStreamReader
 
 class TerminalUiProvider {
-    private val commandReader = CommandReader(InputStreamReader(System.`in`))
+    private val inputReader = InputStreamReader(System.`in`)
+    private val commandExecutor = CommandExecutor()
 
     fun launch() {
         showHint()
@@ -13,7 +14,7 @@ class TerminalUiProvider {
         while (true) {
             val cmd = promptNextCommand() ?: break
             if (cmd.subject().isBlank()) continue
-            CommandExecutor.dispatch(cmd)
+            commandExecutor.dispatch(cmd)
         }
     }
 
@@ -35,7 +36,7 @@ class TerminalUiProvider {
 
     private fun promptNextCommand(): Command? {
         AnsiConsole.out().print(Ansi.ansi().fgDefault().a(">>> "))
-        return commandReader.readCommand()
+        return inputReader.readCommand()
     }
 }
 

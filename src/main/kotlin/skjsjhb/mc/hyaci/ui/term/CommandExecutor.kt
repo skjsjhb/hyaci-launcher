@@ -1,5 +1,8 @@
 package skjsjhb.mc.hyaci.ui.term
 
+import skjsjhb.mc.hyaci.ui.term.compose.CommandName
+import skjsjhb.mc.hyaci.ui.term.compose.Usage
+import skjsjhb.mc.hyaci.ui.term.compose.WithAdapters
 import skjsjhb.mc.hyaci.util.err
 import java.util.*
 import kotlin.reflect.KCallable
@@ -7,7 +10,10 @@ import kotlin.reflect.KParameter
 import kotlin.reflect.KVisibility
 import kotlin.reflect.full.declaredMembers
 
-object CommandExecutor {
+/**
+ * This class is responsible for recording command listeners and dispatch commands.
+ */
+class CommandExecutor {
     private val handlers: MutableMap<String, KCallable<Any?>> = HashMap()
 
     private val processors: MutableMap<String, CommandProcessor> = HashMap()
@@ -20,6 +26,9 @@ object CommandExecutor {
         ServiceLoader.load(CommandProcessor::class.java).forEach { addProcessor(it) }
     }
 
+    /**
+     * Finds the handlers in the specified [CommandProcessor] and register each as a handler.
+     */
     fun addProcessor(what: CommandProcessor) {
         what::class.declaredMembers
             .filter { !it.name.startsWith("<") } // Properties
@@ -43,6 +52,9 @@ object CommandExecutor {
             }
     }
 
+    /**
+     * Dispatches the given [Command] and returns its result.
+     */
     fun dispatch(command: Command): Boolean {
         if (command.subject() == "retry") {
             return if (lastFailedCommand == null) {

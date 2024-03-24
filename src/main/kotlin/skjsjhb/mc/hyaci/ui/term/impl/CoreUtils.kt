@@ -5,7 +5,7 @@ import org.fusesource.jansi.AnsiConsole
 import skjsjhb.mc.hyaci.sys.Canonical
 import skjsjhb.mc.hyaci.sys.Options
 import skjsjhb.mc.hyaci.ui.term.CommandProcessor
-import skjsjhb.mc.hyaci.ui.term.Usage
+import skjsjhb.mc.hyaci.ui.term.compose.Usage
 import skjsjhb.mc.hyaci.ui.term.tinfo
 import kotlin.system.exitProcess
 

@@ -1,7 +1,7 @@
 package skjsjhb.mc.hyaci.ui.term.impl
 
 import skjsjhb.mc.hyaci.ui.term.CommandProcessor
-import skjsjhb.mc.hyaci.ui.term.Usage
+import skjsjhb.mc.hyaci.ui.term.compose.Usage
 import skjsjhb.mc.hyaci.ui.term.tinfo
 
 @Suppress("unused")

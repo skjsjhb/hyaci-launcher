@@ -16,7 +16,7 @@ class CommandReaderTest {
             junction
             cmd3 slash\ es
         """.trimIndent()
-        CommandReader(StringReader(content)).run {
+        StringReader(content).run {
             assertNotNull(readCommand()).run {
                 assertEquals("arg2", unnamed(1))
             }

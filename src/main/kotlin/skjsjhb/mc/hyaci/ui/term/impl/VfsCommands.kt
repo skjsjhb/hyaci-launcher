@@ -1,6 +1,12 @@
 package skjsjhb.mc.hyaci.ui.term.impl
 
-import skjsjhb.mc.hyaci.ui.term.*
+import skjsjhb.mc.hyaci.ui.term.CommandProcessor
+import skjsjhb.mc.hyaci.ui.term.compose.CommandName
+import skjsjhb.mc.hyaci.ui.term.compose.Usage
+import skjsjhb.mc.hyaci.ui.term.compose.WithAdapters
+import skjsjhb.mc.hyaci.ui.term.requireConfirm
+import skjsjhb.mc.hyaci.ui.term.tinfo
+import skjsjhb.mc.hyaci.ui.term.twarn
 import skjsjhb.mc.hyaci.vfs.VanillaFs
 import skjsjhb.mc.hyaci.vfs.Vfs
 import skjsjhb.mc.hyaci.vfs.VfsManager

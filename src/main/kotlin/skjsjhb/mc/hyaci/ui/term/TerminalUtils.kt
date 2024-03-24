@@ -41,6 +41,9 @@ fun askMore(what: String): String {
     throw IllegalArgumentException("Value '$what' is mandatory, but not provided")
 }
 
+/**
+ * Requests the user to confirm the given message.
+ */
 fun askConfirm(what: String): Boolean {
     printa { fgDefault().a("? $what (yes/no): ") }
     while (true) {
@@ -51,6 +54,9 @@ fun askConfirm(what: String): Boolean {
     }
 }
 
+/**
+ * Requests the user to confirm the given message. If the user did not confirm, then an exception is thrown.
+ */
 fun requireConfirm(what: String) {
     askConfirm(what).let { if (!it) throw IllegalStateException("Canceled") }
 }

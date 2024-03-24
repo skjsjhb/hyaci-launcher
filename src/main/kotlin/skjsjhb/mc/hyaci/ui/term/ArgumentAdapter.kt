@@ -5,9 +5,18 @@ import kotlin.reflect.KType
 import kotlin.reflect.full.createType
 import kotlin.reflect.full.primaryConstructor
 
+/**
+ * Reads and converts a string into the given argument type.
+ */
 interface ArgumentAdapter<out T> {
+    /**
+     * Runs the conversion.
+     */
     fun get(src: String): T
 
+    /**
+     * Gets the type that this adapter will convert to.
+     */
     fun target(): KType
 
     companion object {
