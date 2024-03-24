@@ -1,4 +1,6 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.panteleyev.jpackage.ImageType
+import org.panteleyev.jpackage.JPackageTask
 
 plugins {
     kotlin("jvm") version "1.9.23"
@@ -6,11 +8,11 @@ plugins {
     id("org.jetbrains.dokka") version "1.9.20"
     id("idea")
     id("application")
+    id("org.panteleyev.jpackageplugin") version "1.6.0"
 }
 
 group = "skjsjhb.mc.hyaci"
 version = "1.0"
-
 
 idea {
     module {
@@ -65,4 +67,81 @@ application {
 
 tasks.withType<JavaExec> {
     standardInput = System.`in`
+}
+
+
+task("copyDependencies", Copy::class) {
+    from(configurations.runtimeClasspath).into(layout.buildDirectory.dir("jars"))
+}
+
+task("copyJar", Copy::class) {
+    from(tasks.jar).into(layout.buildDirectory.dir("jars"))
+}
+
+tasks.register<JPackageTask>("installer") {
+    description = "Create installer using JPackage."
+    winPerUserInstall = true
+    type = ImageType.MSI
+
+    windows {
+        winMenu = true
+    }
+}
+
+tasks.register<JPackageTask>("portable") {
+    description = "Create portable executable file using JPackage."
+    type = ImageType.APP_IMAGE
+}
+
+tasks.withType<JPackageTask> {
+    group = "distribution"
+
+    dependsOn("jar", "copyDependencies", "copyJar")
+
+    appName = "Hyaci Launcher"
+    vendor = "The Hyaci Launcher Project"
+    appVersion = project.version.toString()
+    copyright = "Copyright (C) 2024 Ted \"skjsjhb\" Gao"
+
+    runtimeImage = System.getProperty("java.home")
+
+    mainClass = "skjsjhb.mc.hyaci.Main"
+    mainJar = tasks.jar.get().archiveFileName.get()
+
+    input = layout.buildDirectory.dir("jars").get().asFile.path
+
+    destination = layout.buildDirectory.dir("dist").get().asFile.path
+
+    javaOptions = listOf("-Dfile.encoding=UTF-8", "-Dlog4j.skipJansi=false")
+
+    windows {
+        doFirst {
+            exec {
+                workingDir = layout.buildDirectory.asFile.get()
+                isIgnoreExitValue = true
+                commandLine("cmd", "/C", "rmdir /Q /S \"dist\\Hyaci Launcher\"")
+            }
+        }
+        winConsole = true
+    }
+
+    mac {
+        doFirst {
+            exec {
+                workingDir = layout.buildDirectory.asFile.get()
+                commandLine("rm", "-rf", "dist/Hyaci Launcher")
+            }
+        }
+        javaOptions.add("-XstartOnFirstThread")
+        macPackageIdentifier = "skjsjhb.mc.hyaci"
+    }
+
+    linux {
+        doFirst {
+            exec {
+                workingDir = layout.buildDirectory.asFile.get()
+                commandLine("rm", "-rf", "dist/Hyaci Launcher")
+            }
+        }
+    }
 }
