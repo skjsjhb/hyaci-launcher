@@ -2,15 +2,18 @@ package skjsjhb.mc.hyaci.ui.term
 
 import org.fusesource.jansi.Ansi
 import org.fusesource.jansi.AnsiConsole
+import java.io.InputStreamReader
 
 class TerminalUiProvider {
+    private val commandReader = CommandReader(InputStreamReader(System.`in`))
+
     fun launch() {
         showHint()
 
         while (true) {
-            val cmd = nextCommand() ?: break
-            if (cmd.isBlank()) continue
-            CommandExecutor.dispatch(Command.of(cmd))
+            val cmd = promptNextCommand() ?: break
+            if (cmd.subject().isBlank()) continue
+            CommandExecutor.dispatch(cmd)
         }
     }
 
@@ -30,18 +33,9 @@ class TerminalUiProvider {
         ).let { AnsiConsole.out().println(it) }
     }
 
-    private fun nextCommand(): String? {
+    private fun promptNextCommand(): Command? {
         AnsiConsole.out().print(Ansi.ansi().fgDefault().a(">>> "))
-        return StringBuilder().apply {
-            while (true) {
-                val s = readlnOrNull() ?: return null
-                if (!s.endsWith("\\")) {
-                    append(s)
-                    break
-                }
-                append(s.substring(0, s.length - 1))
-            }
-        }.toString()
+        return commandReader.readCommand()
     }
 }
 

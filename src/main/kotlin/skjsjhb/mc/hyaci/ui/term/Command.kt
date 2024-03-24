@@ -100,7 +100,7 @@ private class StringCommand(src: String) : Command {
                 }
             }
         }.let {
-            subject = it.poll()
+            subject = it.poll() ?: ""
             unnamed = it // Use the rest elements
         }
     }
