@@ -103,7 +103,7 @@ tasks.withType<JPackageTask> {
     appVersion = project.version.toString()
     copyright = "Copyright (C) 2024 Ted \"skjsjhb\" Gao"
 
-    runtimeImage = System.getProperty("java.home")
+    runtimeImage = System.getenv("HYACI_BUILD_JAVA_IMAGE") ?: System.getProperty("java.home")
 
     mainClass = "skjsjhb.mc.hyaci.Main"
     mainJar = tasks.jar.get().archiveFileName.get()
