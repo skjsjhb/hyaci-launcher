@@ -132,7 +132,7 @@ tasks.withType<JPackageTask> {
                 commandLine("rm", "-rf", "dist/Hyaci Launcher")
             }
         }
-        javaOptions.add("-XstartOnFirstThread")
+        javaOptions = listOf("-XstartOnFirstThread", "-Dfile.encoding=UTF-8", "-Dlog4j.skipJansi=false")
         macPackageIdentifier = "skjsjhb.mc.hyaci"
     }
 
