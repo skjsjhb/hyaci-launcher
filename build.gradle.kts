@@ -80,10 +80,10 @@ task("copyJar", Copy::class) {
 
 tasks.register<JPackageTask>("installer") {
     description = "Create installer using JPackage."
-    winPerUserInstall = true
-    type = ImageType.MSI
 
     windows {
+        type = ImageType.MSI
+        winPerUserInstall = true
         winMenu = true
     }
 }
