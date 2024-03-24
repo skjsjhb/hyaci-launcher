@@ -178,7 +178,7 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
         val authProc = forkClass(
             "skjsjhb.mc.hyaci.auth.VanillaAccountHelper",
             listOf(internalId),
-            if (Canonical.osName() == "osx") listOf("-XstartOnFirstThread") else emptyList()
+            helperJvmFlags()
         )
 
         // Use error stream to avoid color escapes
@@ -192,6 +192,17 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
             }
         }
         oauthCode.blankThenThrow("oauth code")
+    }
+
+    private fun helperJvmFlags(): List<String> = when (Canonical.osName()) {
+        "osx" -> listOf(
+            "-XstartOnFirstThread",
+            "--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
+            "--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED",
+            "--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED",
+        )
+
+        else -> emptyList()
     }
 
     companion object {
