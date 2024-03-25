@@ -82,12 +82,9 @@ class CommandExecutor {
             runCatching {
                 castAndCall(command, candidate)
             }.onFailure {
-                if (it.cause?.message == "Canceled") {
-                    terror("Canceled.")
-                } else {
-                    err("Exception in command handler", it)
-                    terror("Canceled due to previous error. (${it.cause?.localizedMessage})")
-                }
+                val message = it.findMostRecentMessage()
+                err("Exception in command handler", it)
+                terror("Canceled due to previous error. ($message)")
             }.getOrDefault(false)
         } else {
             terror("No command named ${command.subject()}")
@@ -99,6 +96,11 @@ class CommandExecutor {
         }
 
         return result
+    }
+
+    private fun Throwable.findMostRecentMessage(): String {
+        if (localizedMessage.isNotBlank()) return localizedMessage
+        return if (cause == null) "Unknown" else cause!!.findMostRecentMessage()
     }
 
     private fun castAndCall(command: Command, candidate: KCallable<Any?>): Boolean =
