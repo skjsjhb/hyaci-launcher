@@ -19,7 +19,7 @@ fun Reader.readCommand(): Command? = StringBuilder().apply {
             }
 
             '\n'.code, '\r'.code -> {
-                if (!connectLine) break
+                if (!connectLine && isNotEmpty()) break
                 connectLine = false
             }
 

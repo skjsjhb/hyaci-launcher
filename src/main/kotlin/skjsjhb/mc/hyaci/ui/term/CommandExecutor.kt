@@ -86,7 +86,7 @@ class CommandExecutor {
                     terror("Canceled.")
                 } else {
                     err("Exception in command handler", it)
-                    terror("Canceled due to previous error. (${it.localizedMessage})")
+                    terror("Canceled due to previous error. (${it.cause?.localizedMessage})")
                 }
             }.getOrDefault(false)
         } else {

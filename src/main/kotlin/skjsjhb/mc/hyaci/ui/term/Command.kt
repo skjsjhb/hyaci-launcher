@@ -44,7 +44,7 @@ interface Command {
     }
 }
 
-private class StringCommand(src: String) : Command {
+private class StringCommand(private val src: String) : Command {
     private val subject: String
     private val unnamed: MutableList<String>
     private val named: MutableMap<String, String> = HashMap()
@@ -115,4 +115,6 @@ private class StringCommand(src: String) : Command {
     }
 
     override fun named(key: String): String? = named.getOrDefault(key, null)
+
+    override fun toString(): String = src
 }
