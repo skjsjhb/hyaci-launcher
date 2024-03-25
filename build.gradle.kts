@@ -22,7 +22,6 @@ idea {
 
 repositories {
     mavenCentral()
-    maven("https://jitpack.io")
 }
 
 dependencies {
@@ -31,15 +30,14 @@ dependencies {
     implementation("org.apache.logging.log4j:log4j-slf4j2-impl:2.23.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("com.h2database:h2:2.2.224")
-    implementation("me.friwi:jcefmaven:122.1.10")
     implementation("com.github.jponge:lzma-java:1.3")
     implementation("com.microsoft:credential-secure-storage:1.0.0")
     implementation("org.fusesource.jansi:jansi:1.18")
     implementation(kotlin("reflect"))
 
-    testImplementation("com.google.code.findbugs:jsr305:3.0.2")
-    testImplementation("org.jetbrains.kotlin:kotlin-test")
+    runtimeOnly(project(":oauth-helper"))
 
+    testImplementation("org.jetbrains.kotlin:kotlin-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

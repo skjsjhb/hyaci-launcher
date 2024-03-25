@@ -2,7 +2,6 @@ package skjsjhb.mc.hyaci.auth
 
 import kotlinx.serialization.json.*
 import skjsjhb.mc.hyaci.net.Requests
-import skjsjhb.mc.hyaci.sys.Canonical
 import skjsjhb.mc.hyaci.sys.dataPathOf
 import skjsjhb.mc.hyaci.sys.forkClass
 import skjsjhb.mc.hyaci.util.Sources
@@ -11,6 +10,7 @@ import skjsjhb.mc.hyaci.util.getString
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.Serializable
+import java.util.*
 import kotlin.io.path.exists
 
 /**
@@ -173,45 +173,41 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
         debug("Completed vanilla authentication")
     }
 
+    private val helperJvmFlags: List<String> = listOf(
+        "--add-opens=java.desktop/sun.awt=ALL-UNNAMED",
+        "--add-opens=java.desktop/sun.lwawt=ALL-UNNAMED",
+        "--add-opens=java.desktop/sun.lwawt.macosx=ALL-UNNAMED",
+    )
+
     // Opens a browser and blocks until user login
     private fun browserLogin() {
+        val cacheId = UUID.nameUUIDFromBytes(internalId.toByteArray()).toString()
         val authProc = forkClass(
-            "skjsjhb.mc.hyaci.auth.VanillaAccountHelper",
-            listOf(internalId),
-            helperJvmFlags()
+            "skjsjhb.mc.hyaci.auth.OAuthHelper",
+            listOf(
+                dataPathOf("jcef-cache/$cacheId").toString(),
+                dataPathOf("jcef-bundle").toString()
+            ),
+            helperJvmFlags
         )
 
-        // Use error stream to avoid color escapes
-        val lines = BufferedReader(InputStreamReader(authProc.errorStream)).lines()
+        val lines = BufferedReader(InputStreamReader(authProc.inputStream)).lines()
         for (l in lines) {
             if (l.startsWith("OAuth Code: ")) {
                 oauthCode = l.replace("OAuth Code: ", "")
                 break
             } else {
-                println("Message from helper: $l")
+                debug("Message from helper: $l")
             }
         }
         oauthCode.blankThenThrow("oauth code")
     }
 
-    private fun helperJvmFlags(): List<String> = when (Canonical.osName()) {
-        "osx" -> listOf(
-            "-XstartOnFirstThread",
-            "--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
-            "--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED",
-            "--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED",
-        )
-
-        else -> emptyList()
-    }
-
     companion object {
         private const val serialVersionUID = 1L
 
-        /**
-         * Checks whether the browser has been installed and ready for use.
-         */
-        fun isBrowserReady(): Boolean = dataPathOf("jcef-bundle").exists()
+        // Checks whether the browser has been installed and ready for use.
+        private fun isBrowserReady(): Boolean = dataPathOf("jcef-bundle").exists()
     }
 }
 
