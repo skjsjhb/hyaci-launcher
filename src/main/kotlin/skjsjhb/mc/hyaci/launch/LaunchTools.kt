@@ -24,7 +24,8 @@ data class LaunchPack(
     val id: String,
     val fs: Vfs,
     val rv: Map<String, String>,
-    val account: Account
+    val account: Account,
+    val java: String
 )
 
 // The limitation of backlog buffer
@@ -45,8 +46,8 @@ class Game(private val launchPack: LaunchPack) {
     // Cached profile
     private val profile = LaunchProfile.load(launchPack.id, launchPack.fs)
 
-    // Java executable
-    private val java = JreManager.getJavaExecutable(profile.jreComponent())
+    // Path to Java executable
+    private val javaPath = JreManager.getJavaExecutable(launchPack.java.ifBlank { profile.jreComponent() }).toString()
 
     /**
      * Accesses the log buffer via a shared [Stream].
@@ -78,7 +79,7 @@ class Game(private val launchPack: LaunchPack) {
         if (process != null) {
             throw IllegalStateException("A process has already been created")
         }
-        info("Starting using $java")
+        info("Starting using $javaPath")
         prepare()
         process = builder.start()
         info("Created game process ${process?.pid()}")
@@ -152,7 +153,7 @@ class Game(private val launchPack: LaunchPack) {
         }
 
         return mutableListOf<String>().apply {
-            add(java.toString())
+            add(javaPath)
             profile.jvmArguments().filter { it.rules() accepts launchPack.rv }.forEach { addAll(it.values()) }
             add(profile.mainClass())
             profile.gameArguments().filter { it.rules() accepts launchPack.rv }.forEach { addAll(it.values()) }
