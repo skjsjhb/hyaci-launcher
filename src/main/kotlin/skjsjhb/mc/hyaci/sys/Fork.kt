@@ -18,5 +18,6 @@ fun forkClass(className: String, args: List<String> = emptyList(), vmArgs: List<
         Path.of(System.getProperty("java.home"), "bin", "java").normalize().toAbsolutePath().toString().let {
             debug("Forking class $className using $it")
             command(listOf(it, "-cp", System.getProperty("java.class.path")) + vmArgs + listOf(className) + args)
+            redirectErrorStream(true)
         }
     }.start()
