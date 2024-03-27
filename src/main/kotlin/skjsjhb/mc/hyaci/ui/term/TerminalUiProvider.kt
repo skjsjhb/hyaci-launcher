@@ -2,13 +2,14 @@ package skjsjhb.mc.hyaci.ui.term
 
 import org.fusesource.jansi.Ansi
 import org.fusesource.jansi.AnsiConsole
+import skjsjhb.mc.hyaci.ui.UiProvider
 import java.io.InputStreamReader
 
-class TerminalUiProvider {
+class TerminalUiProvider : UiProvider {
     private val inputReader = InputStreamReader(System.`in`)
     private val commandExecutor = CommandExecutor()
 
-    fun launch() {
+    override fun launch(args: Array<String>) {
         showHint()
 
         while (true) {

@@ -10,14 +10,14 @@ import skjsjhb.mc.hyaci.util.info
 /**
  * Main entry of the application.
  */
-fun main() {
+fun main(args: Array<String>) {
     showLicense()
 
     Thread.setDefaultUncaughtExceptionHandler { t, e ->
         err("Uncaught exception in thread ${t.name}", e)
     }
 
-    TerminalUiProvider().launch()
+    TerminalUiProvider().launch(args)
 }
 
 private fun showLicense() {
