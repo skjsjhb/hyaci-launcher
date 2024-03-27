@@ -47,7 +47,7 @@ class Game(private val launchPack: LaunchPack) {
     private val profile = LaunchProfile.load(launchPack.id, launchPack.fs)
 
     // Path to Java executable
-    private val javaPath = JreManager.getJavaExecutable(launchPack.java.ifBlank { profile.jreComponent() }).toString()
+    private val javaPath = JreManager.get(launchPack.java.ifBlank { profile.jreComponent() })
 
     /**
      * Accesses the log buffer via a shared [Stream].

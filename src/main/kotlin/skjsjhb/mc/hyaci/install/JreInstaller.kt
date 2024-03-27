@@ -6,6 +6,7 @@ import skjsjhb.mc.hyaci.net.DownloadGroup
 import skjsjhb.mc.hyaci.net.Requests
 import skjsjhb.mc.hyaci.sys.Canonical
 import skjsjhb.mc.hyaci.sys.Options
+import skjsjhb.mc.hyaci.sys.dataPathOf
 import skjsjhb.mc.hyaci.util.*
 import java.nio.file.Files
 import java.nio.file.Path
@@ -18,7 +19,7 @@ import java.util.concurrent.Executors
 class JreInstaller(private val componentName: String) : Installer {
     override fun install() {
         info("Installing runtime $componentName")
-        val rootDir = JreManager.getJavaHome(componentName)
+        val rootDir = getBundledJreInstallDir(componentName)
         getFiles().let { files ->
             files.map {
                 Artifact.of(
@@ -57,6 +58,8 @@ class JreInstaller(private val componentName: String) : Installer {
                 }
             }
         }
+
+        JreManager.put(componentName, getBundledJreBinaryPath(componentName).toString())
 
         info("Installed runtime $componentName")
     }
@@ -109,6 +112,16 @@ class JreInstaller(private val componentName: String) : Installer {
             else -> "" // This is not going to happen
         }
 }
+
+private fun getBundledJreInstallDir(componentName: String): Path = dataPathOf("runtimes/$componentName")
+
+private fun getBundledJreBinaryPath(componentName: String): Path = getBundledJreInstallDir(componentName).resolve(
+    when (Canonical.osName()) {
+        "osx" -> "jre.bundle/Contents/Home/bin/java"
+        "windows" -> "bin/java.exe"
+        else -> "bin/java"
+    }
+)
 
 private data class JreFile(
     val artifact: Artifact,

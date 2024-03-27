@@ -5,3 +5,4 @@ skjsjhb.mc.hyaci.ui.term.impl.Accounts
 skjsjhb.mc.hyaci.ui.term.impl.VfsCommands
 skjsjhb.mc.hyaci.ui.term.impl.Moo
 skjsjhb.mc.hyaci.ui.term.impl.Evaluation
+skjsjhb.mc.hyaci.ui.term.impl.JreUtils

@@ -6,6 +6,7 @@ import kotlin.reflect.KClass
 /**
  * States that the specified adapters should be appended when this command registers.
  */
+@Retention(AnnotationRetention.RUNTIME)
 annotation class WithAdapters(
     vararg val adapters: KClass<out ArgumentAdapter<Any>>
 )

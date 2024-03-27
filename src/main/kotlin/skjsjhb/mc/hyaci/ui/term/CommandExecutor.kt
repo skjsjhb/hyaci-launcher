@@ -99,7 +99,7 @@ class CommandExecutor {
     }
 
     private fun Throwable.findMostRecentMessage(): String {
-        if (localizedMessage.isNotBlank()) return localizedMessage
+        if (localizedMessage?.isNotBlank() == true) return localizedMessage
         return if (cause == null) "Unknown" else cause!!.findMostRecentMessage()
     }
 
