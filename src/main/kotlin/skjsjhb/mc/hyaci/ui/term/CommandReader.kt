@@ -8,18 +8,23 @@ import java.io.Reader
  * This method blocks until a full line of command has been extracted.
  * Returns `null` when the host [Reader] reaches its end.
  */
-fun Reader.readCommand(): Command? = StringBuilder().apply {
+fun Reader.readCommand(): Command? = StringBuilder().run {
     var connectLine = false
+    var eos = false
     while (true) {
         when (val c = read()) {
-            -1 -> break
+            -1 -> {
+                eos = true
+                break
+            }
+
             '\\'.code -> {
                 if (connectLine) append('\\') // The previous one is not a connector
                 connectLine = true
             }
 
             '\n'.code, '\r'.code -> {
-                if (!connectLine && isNotEmpty()) break
+                if (!connectLine) break
                 connectLine = false
             }
 
@@ -30,6 +35,5 @@ fun Reader.readCommand(): Command? = StringBuilder().apply {
             }
         }
     }
-}.toString().let {
-    Command.of(it.ifBlank { return null })
+    if (eos) null else Command.of(toString())
 }
