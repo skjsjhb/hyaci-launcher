@@ -207,7 +207,7 @@ class VanillaAccount(private val internalId: String) : Account, Serializable {
         private const val serialVersionUID = 1L
 
         // Checks whether the browser has been installed and ready for use.
-        private fun isBrowserReady(): Boolean = dataPathOf("jcef-bundle").exists()
+        fun isBrowserReady(): Boolean = dataPathOf("jcef-bundle").exists()
     }
 }
 
