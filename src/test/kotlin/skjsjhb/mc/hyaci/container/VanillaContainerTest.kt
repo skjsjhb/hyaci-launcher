@@ -1,13 +1,13 @@
-package skjsjhb.mc.hyaci.vfs
+package skjsjhb.mc.hyaci.container
 
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class VanillaFsTest {
+class VanillaContainerTest {
     @Test
-    fun `VanillaFS Path Resolution`() {
-        VanillaFs("test", Path.of("./hyaci")).run {
+    fun `Vanilla Path Resolution`() {
+        VanillaContainer("test", Path.of("./hyaci")).run {
             assertEquals(
                 Path.of("./hyaci/versions/1.20.4/1.20.4.json").toAbsolutePath().normalize(),
                 profile("1.20.4")

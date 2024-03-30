@@ -44,7 +44,7 @@ class DownloadsTest {
             "https://piston-meta.mojang.com/v1/packages/532610f1e06dabec430702ed04b82a045b7091a4/24w06a.json"
         ).map {
             Artifact.of(it, Path.of(URI(it).toURL().path).fileName.toString())
-        }.toSet().let {
+        }.let {
             val grp = DownloadGroup(it)
             assertTrue { grp.resolve() }
             listOf("24w10a.json", "24w09a.json", "24w07a.json", "24w06a.json").forEach {
@@ -63,7 +63,7 @@ class DownloadsTest {
             "https://piston-meta.mojang.com/v1/packages/532610f1e06dabec430702ed04b82a045b7091a4/24w06a.json"
         ).map {
             Artifact.of(it, Path.of(URI(it).toURL().path).fileName.toString())
-        }.toSet().let {
+        }.let {
             val grp = DownloadGroup(it)
 
             // This IOException is concealed deeply...

@@ -285,11 +285,9 @@ class DownloadTask(private val artifact: Artifact) {
  *
  * @param artifacts Artifacts to handle.
  */
-class DownloadGroup(artifacts: Set<Artifact>) {
-    val tasks: Set<DownloadTask> =
-        mutableSetOf<DownloadTask>()
-            .apply { artifacts.forEach { add(DownloadTask(it)) } }
-            .also { debug("Created download group of ${it.size} tasks") }
+class DownloadGroup(artifacts: Iterable<Artifact>) {
+    private val tasks: List<DownloadTask> =
+        artifacts.map { DownloadTask(it) }
 
     private val executorService =
         Executors.newWorkStealingPool(Options.getInt("downloads.poolSize", 32).clampMin(1))

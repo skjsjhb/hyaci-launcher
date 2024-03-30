@@ -17,85 +17,91 @@ import java.util.concurrent.Executors
  * An installer which installs the specified JRE component.
  */
 class JreInstaller(private val componentName: String) : Installer {
+    private lateinit var files: List<JreFile>
+    private val rootDir = getBundledJreInstallDir(componentName)
+
     override fun install() {
         info("Installing runtime $componentName")
-        val rootDir = getBundledJreInstallDir(componentName)
-        getFiles().let { files ->
-            files.map {
-                Artifact.of(
-                    it.artifact.url(),
-                    rootDir.resolve(it.artifact.path() + if (it.isLzma) ".lzma" else "").toString(),
-                    it.artifact.size(),
-                    it.artifact.checksum()
-                )
-            }.toSet().let {
-                debug("Runtime contains ${it.size} files")
-                DownloadGroup(it).resolveOrThrow()
-            }
 
-            debug("Inflating LZMA files")
-
-            // Inflate concurrently
-            Executors.newWorkStealingPool().use {
-                it.invokeAll(
-                    files.filter { it.isLzma }.map {
-                        Callable {
-                            val pat = rootDir.resolve(it.artifact.path()).toString()
-                            unlzma("$pat.lzma", pat)
-                            Files.deleteIfExists(Path.of("$pat.lzma"))
-                            debug("Inflated $pat")
-                        }
-                    }
-                ).forEach { it.get() }
-                it.shutdown()
-            }
-
-            debug("Making files executable")
-            files.filter { it.executable }.forEach {
-                rootDir.resolve(it.artifact.path()).let {
-                    it.toFile().setExecutable(true)
-                    debug("Executable flags set: $it")
-                }
-            }
-        }
-
-        JreManager.put(componentName, getBundledJreBinaryPath(componentName).toString())
+        retrieveFileList()
+        fetchFiles()
+        inflateLZMA()
+        makeExecutable()
+        registerComponent()
 
         info("Installed runtime $componentName")
     }
 
-    private fun getFiles(): Set<JreFile> {
+    private fun registerComponent() {
+        JreManager.put(componentName, getBundledJreBinaryPath(componentName).toString())
+    }
+
+    private fun fetchFiles() {
+        files.map {
+            Artifact.of(
+                it.artifact.url(),
+                rootDir.resolve(it.artifact.path() + if (it.isLzma) ".lzma" else "").toString(),
+                it.artifact.size(),
+                it.artifact.checksum()
+            )
+        }.let {
+            debug("Downloading ${it.size} files")
+            DownloadGroup(it).resolveOrThrow()
+        }
+    }
+
+    private fun inflateLZMA() {
+        debug("Inflating LZMA files")
+
+        // Inflate concurrently
+        Executors.newWorkStealingPool().use {
+            it.invokeAll(
+                files.filter { it.isLzma }.map {
+                    Callable {
+                        val pat = rootDir.resolve(it.artifact.path()).toString()
+                        unlzma("$pat.lzma", pat)
+                        Files.deleteIfExists(Path.of("$pat.lzma"))
+                        debug("Inflated $pat")
+                    }
+                }
+            ).forEach { it.get() }
+            it.shutdown()
+        }
+    }
+
+    private fun makeExecutable() {
+        debug("Making files executable")
+        files.filter { it.executable }.forEach {
+            rootDir.resolve(it.artifact.path()).let {
+                it.toFile().setExecutable(true)
+                debug("Executable flag set: $it")
+            }
+        }
+    }
+
+    private fun retrieveFileList() {
         val componentKey = "${osPair()}.$componentName"
         val manifestUrl = jreManifest.getString("$componentKey.0.manifest.url")
             .ifBlank { throw UnsupportedOperationException("No manifest found for $componentKey ") }
 
-        return mutableSetOf<JreFile>().apply {
-            // LZMA is not really faster, hence we leave an option here
-            val lzmaEnabled = Options.getBoolean("installer.jre.lzma", false)
+        // LZMA is not really faster, hence we leave an option here
+        val lzmaEnabled = Options.getBoolean("installer.jre.lzma", false)
 
-            Requests.getJson(manifestUrl).getObject("files")?.forEach { k, v ->
-                // Strip documents
-                if (k.startsWith("legal/") || k.startsWith("jre.bundle/Contents/Home/legal/")) {
-                    return@forEach
-                }
-
-                // Exclude links and directories
-                if (v.getString("type") != "file") {
-                    return@forEach
-                }
-
-                // Generate file
+        files = Requests.getJson(manifestUrl).getObject("files").orEmpty()
+            .filterKeys { !it.startsWith("legal/") && !it.startsWith("jre.bundle/Contents/Home/legal/") }
+            .filterValues { it.getString("type") == "file" }
+            .map { (k, v) ->
                 val isLzma = lzmaEnabled && v.getString("downloads.lzma.url").isNotBlank()
                 val typeHint = if (isLzma) "lzma" else "raw"
                 val artifact = Artifact.of(
-                    v.run { getString("downloads.$typeHint.url") },
+                    v.getString("downloads.$typeHint.url"),
                     k,
                     v.getLong("downloads.$typeHint.url").toULong(),
                     "sha1=" + v.getString("downloads.$typeHint.sha1")
                 )
-                add(JreFile(artifact, v.getBoolean("executable"), isLzma))
+
+                JreFile(artifact, v.getBoolean("executable"), isLzma)
             }
-        }
     }
 
     /**

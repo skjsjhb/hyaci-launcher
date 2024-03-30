@@ -1,4 +1,4 @@
-package skjsjhb.mc.hyaci.vfs
+package skjsjhb.mc.hyaci.container
 
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
@@ -11,10 +11,10 @@ import java.nio.file.Path
  * This class is open for the convenience of creating other FSes based on
  * the vanilla structure.
  *
- * @param name The name of the VFS.
+ * @param name The name of the container.
  * @param root The root directory (i.e., game directory).
  */
-open class VanillaFs(private var name: String, private var root: Path) : Vfs, Serializable {
+open class VanillaContainer(private var name: String, private var root: Path) : Container, Serializable {
     override fun name(): String = name
 
     override fun profile(id: String): Path = resolve("versions/$id/$id.json")
@@ -57,6 +57,6 @@ open class VanillaFs(private var name: String, private var root: Path) : Vfs, Se
     }
 
     companion object {
-        private const val serialVersionUID = 1L
+        private const val serialVersionUID = 2L
     }
 }

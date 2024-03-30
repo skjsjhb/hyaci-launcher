@@ -3,10 +3,9 @@ package skjsjhb.mc.hyaci.ui.term.impl
 import skjsjhb.mc.hyaci.install.JreInstaller
 import skjsjhb.mc.hyaci.launch.JreManager
 import skjsjhb.mc.hyaci.ui.term.CommandProcessor
+import skjsjhb.mc.hyaci.ui.term.InteractionContext
 import skjsjhb.mc.hyaci.ui.term.compose.CommandName
 import skjsjhb.mc.hyaci.ui.term.compose.Usage
-import skjsjhb.mc.hyaci.ui.term.requireConfirm
-import skjsjhb.mc.hyaci.ui.term.tinfo
 
 @Suppress("unused")
 class JreUtils : CommandProcessor {
@@ -19,8 +18,10 @@ class JreUtils : CommandProcessor {
     """
     )
     fun register(name: String, bin: String) {
-        JreManager.put(name, bin)
-        tinfo("Java component list altered.")
+        InteractionContext.run {
+            JreManager.put(name, bin)
+            info("Java component list altered.")
+        }
     }
 
     @CommandName("install.java")
@@ -31,9 +32,11 @@ class JreUtils : CommandProcessor {
     """
     )
     fun install(name: String) {
-        tinfo("Install Java component: $name")
-        requireConfirm("Is this correct?")
-        JreInstaller(name).install()
-        tinfo("Completed installation of $name.")
+        InteractionContext.run {
+            info("Install Java component: $name")
+            requestConfirm("Is this correct?")
+            JreInstaller(name).install()
+            info("Completed installation of $name.")
+        }
     }
 }

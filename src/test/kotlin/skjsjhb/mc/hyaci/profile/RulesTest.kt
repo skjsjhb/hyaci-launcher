@@ -1,6 +1,5 @@
-package skjsjhb.mc.hyaci.launch
+package skjsjhb.mc.hyaci.profile
 
-import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -8,15 +7,25 @@ import kotlin.test.assertTrue
 class RulesTest {
     @Test
     fun `Matching JSON Rules`() {
-        val json = """
+        val src = """
             {
-                "action": "allow",
-                "os": {
-                    "name": "hyaci"
-                }
+                "libraries": [
+                    {
+                        "rules": [
+                            {
+                                "action": "allow",
+                                "os": {
+                                    "name": "hyaci"
+                                }
+                            }
+                        ]
+                    }
+                ]
             }
         """.trimIndent()
-        val rule = JsonRule(Json.parseToJsonElement(json))
+
+        val profile = Profile.load("foo") { src }
+        val rule = profile.libraries().first().rules()
         assertTrue {
             rule.accepts(
                 mapOf(
@@ -28,8 +37,7 @@ class RulesTest {
         assertTrue {
             rule.accepts(
                 mapOf(
-                    "os.name" to "hyaci",
-                    "os.arch" to "x128"
+                    "os.name" to "hyaci", "os.arch" to "x128"
                 )
             )
         }

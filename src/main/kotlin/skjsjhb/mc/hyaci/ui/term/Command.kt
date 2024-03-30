@@ -28,7 +28,7 @@ interface Command {
      */
     fun get(name: String, index: Int = -1): String {
         val s = if (index >= 0) unnamed().getOrNull(index) ?: "" else ""
-        return s.ifBlank { named(name) }?.ifBlank { askMore(name) } ?: ""
+        return s.ifBlank { named(name) }?.ifBlank { InteractionContext.requestInput(name) } ?: ""
     }
 
     /**
@@ -39,7 +39,7 @@ interface Command {
         return s.ifBlank { named(name) }?.ifBlank { def } ?: def
     }
 
-    companion object CommandUtils {
+    companion object {
         fun of(src: String): Command = StringCommand(src)
     }
 }

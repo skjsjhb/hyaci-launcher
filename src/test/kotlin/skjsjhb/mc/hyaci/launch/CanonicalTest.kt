@@ -4,7 +4,7 @@ import skjsjhb.mc.hyaci.sys.Canonical
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class SysTest {
+class CanonicalTest {
     @Test
     fun `Retrieve OS Name`() {
         System.setProperty("os.name", "macOS Ultimate")

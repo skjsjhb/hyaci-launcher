@@ -5,7 +5,8 @@ import kotlinx.serialization.json.*
 /**
  * Gets a key split by dots in the given [JsonElement].
  */
-fun JsonElement.gets(id: String): JsonElement? {
+fun JsonElement?.gets(id: String): JsonElement? {
+    if (this == null) return null
     val names = id.split(".")
     var current: JsonElement = this
     for (k in names) {

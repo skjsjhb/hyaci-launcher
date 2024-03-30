@@ -2,11 +2,13 @@ package skjsjhb.mc.hyaci.launch
 
 import kotlinx.serialization.json.Json
 import skjsjhb.mc.hyaci.auth.Account
+import skjsjhb.mc.hyaci.container.Container
+import skjsjhb.mc.hyaci.profile.Profile
+import skjsjhb.mc.hyaci.profile.filterRules
 import skjsjhb.mc.hyaci.util.debug
 import skjsjhb.mc.hyaci.util.getBoolean
 import skjsjhb.mc.hyaci.util.info
 import skjsjhb.mc.hyaci.util.warn
-import skjsjhb.mc.hyaci.vfs.Vfs
 import java.io.File
 import java.nio.file.Files
 import java.util.*
@@ -17,13 +19,15 @@ import java.util.stream.Stream
  * A summary of resources configured to launch the game.
  *
  * @param id The ID of the profile to launch.
- * @param fs The virtual filesystem for path resolution.
- * @param rv Values used to match the rules.
+ * @param container The virtual filesystem for path resolution.
+ * @param ruleValues Values used to match the rules.
+ * @param account Account to be used for launch.
+ * @param java Java component name.
  */
 data class LaunchPack(
     val id: String,
-    val fs: Vfs,
-    val rv: Map<String, String>,
+    val container: Container,
+    val ruleValues: Map<String, String>,
     val account: Account,
     val java: String
 )
@@ -44,7 +48,7 @@ class Game(private val launchPack: LaunchPack) {
     private val logBuffer: Queue<String> = ConcurrentLinkedQueue()
 
     // Cached profile
-    private val profile = LaunchProfile.load(launchPack.id, launchPack.fs)
+    private val profile = Profile.load(launchPack.id, launchPack.container)
 
     // Path to Java executable
     private val javaPath = JreManager.get(launchPack.java.ifBlank { profile.jreComponent() })
@@ -125,7 +129,7 @@ class Game(private val launchPack: LaunchPack) {
      * Decides whether the assets should be mapped to the resource folder.
      */
     private fun shouldAssetMap(): Boolean =
-        Json.parseToJsonElement(Files.readString(launchPack.fs.assetIndex(profile.assetId())))
+        Json.parseToJsonElement(Files.readString(launchPack.container.assetIndex(profile.assetId())))
             .getBoolean("map_to_resources")
 
     // Assemble arguments and apply template values
@@ -133,64 +137,53 @@ class Game(private val launchPack: LaunchPack) {
         val variableMap = launchPack.run {
             mapOf(
                 "version_name" to profile.version(),
-                "game_directory" to fs.gameDir().toString(),
-                "assets_root" to fs.assetRoot().toString(),
-                "game_assets" to (if (shouldAssetMap()) fs.assetRootMapToResources() else fs.assetRootLegacy()).toString(),
+                "game_directory" to container.gameDir().toString(),
+                "assets_root" to container.assetRoot().toString(),
+                "game_assets" to (if (shouldAssetMap()) container.assetRootMapToResources() else container.assetRootLegacy()).toString(),
                 "assets_index_name" to profile.assetId(),
                 "user_type" to "mojang",
                 "version_type" to profile.versionType(),
-                "natives_directory" to fs.natives(profile.id()).toString(),
+                "natives_directory" to container.natives(profile.id()).toString(),
                 "classpath" to createClassPath(),
-                "path" to fs.logConfig(profile.loggingArtifact()?.path() ?: "").toString(),
+                "path" to container.logConfig(profile.loggingArtifact()?.path() ?: "").toString(),
                 "auth_player_name" to account.username(),
                 "auth_uuid" to account.uuid(),
                 "auth_session" to account.token(),
                 "auth_access_token" to account.token(),
                 "auth_xuid" to account.xuid(),
                 "user_properties" to "[]", // 1.7 Twitch compatibility
-                "clientid" to UUID.randomUUID().toString()
+                "clientid" to UUID.randomUUID().toString(),
+                "launcher_name" to "",
+                "launcher_version" to ""
             )
         }
 
-        return mutableListOf<String>().apply {
-            add(javaPath)
-            profile.jvmArguments().filter { it.rules() accepts launchPack.rv }.forEach { addAll(it.values()) }
-            add(profile.mainClass())
-            profile.gameArguments().filter { it.rules() accepts launchPack.rv }.forEach { addAll(it.values()) }
-        }.map {
-            // Apply templates
-            variableMap.entries.fold(it) { acc, (k, v) -> acc.replace("\${$k}", v) }
-        }
+        return listOf(javaPath)
+            .plus(profile.jvmArgs().filterRules(launchPack.ruleValues).flatMap { it.values() })
+            .plus(listOf(profile.mainClass()))
+            .plus(profile.gameArgs().filterRules(launchPack.ruleValues).flatMap { it.values() })
+            .map {
+                // Apply templates
+                variableMap.entries.fold(it) { acc, (k, v) -> acc.replace("\${$k}", v) }
+            }
     }
 
     // Prepares for the run
     private fun prepare() {
         builder
             .command(createCommand())
-            .directory(File(launchPack.fs.gameDir().toString()))
+            .directory(launchPack.container.gameDir().toFile())
             .redirectErrorStream(true)
     }
 
     // Generates classpath
     private fun createClassPath(): String =
-        launchPack.run {
-            mutableListOf<String>().apply {
-                // Add libraries
-                profile.libraries().forEach {
-                    if (it.rules() accepts rv) {
-                        it.artifact()?.let {
-                            add(fs.library(it.path()).toString())
-                        }
-                    }
-                }
-
-                // Add client
-                profile.clientArtifact()?.let {
-                    // Client artifacts do not have ID fields, use version field here for Forge compatibility
-                    add(fs.client(profile.version()).toString())
-                }
-            }.also { debug("Generated classpath for ${profile.id()}, length ${it.size}") }
-                .joinToString(File.pathSeparator)
-        }
+        profile.libraries()
+            .filterRules(launchPack.ruleValues)
+            .map { it.artifact()?.path() }
+            .plus(profile.clientArtifact()?.path())
+            .filterNotNull()
+            .also { debug("Generated classpath for ${profile.id()}, length ${it.size}") }
+            .joinToString(File.pathSeparator)
 }
 

@@ -2,31 +2,29 @@ package skjsjhb.mc.hyaci.install
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import skjsjhb.mc.hyaci.launch.JsonLaunchProfile
-import skjsjhb.mc.hyaci.launch.LaunchProfile
-import skjsjhb.mc.hyaci.launch.accepts
+import skjsjhb.mc.hyaci.container.Container
 import skjsjhb.mc.hyaci.net.Artifact
 import skjsjhb.mc.hyaci.net.DownloadGroup
 import skjsjhb.mc.hyaci.net.Requests
+import skjsjhb.mc.hyaci.profile.ConcreteProfile
+import skjsjhb.mc.hyaci.profile.JsonProfile
+import skjsjhb.mc.hyaci.profile.filterRules
 import skjsjhb.mc.hyaci.sys.Canonical
 import skjsjhb.mc.hyaci.util.*
-import skjsjhb.mc.hyaci.vfs.Vfs
 import java.nio.file.Files
 
 /**
  * Installs a vanilla game.
  *
  * @param id The ID of the game.
- * @param fs The [Vfs] to install the game on.
+ * @param container The [Container] to install the game on.
  */
-class VanillaInstaller(private val id: String, private val fs: Vfs) : Installer {
+class VanillaInstaller(private val id: String, private val container: Container) : Installer {
     // Cached profile object
-    private lateinit var profile: LaunchProfile
+    private lateinit var profile: ConcreteProfile
 
     override fun install() {
-        info("Installing $id on ${fs.resolve(".")}")
+        info("Installing $id on ${container.resolve(".")}")
 
         fetchProfile()
         fetchFiles()
@@ -36,16 +34,17 @@ class VanillaInstaller(private val id: String, private val fs: Vfs) : Installer 
     }
 
     private fun fetchProfile() {
-        val profileUrl = versionManifest.gets("versions")
-            ?.jsonArray?.find { it.getString("id") == id }?.getString("url")
+        val profileUrl = versionManifest.getArray("versions")
+            ?.find { it.getString("id") == id }
+            ?.getString("url")
             ?: throw NoSuchElementException("No profile with ID $id")
 
         debug("Profile url is $profileUrl")
 
         val profileContent = Requests.getString(profileUrl)
-        profile = JsonLaunchProfile(Json.parseToJsonElement(profileContent))
+        profile = ConcreteProfile(JsonProfile(Json.parseToJsonElement(profileContent)), container)
 
-        fs.profile(id).let {
+        container.profile(id).let {
             Files.createDirectories(it.parent)
             Files.writeString(it, profileContent)
         }
@@ -67,14 +66,14 @@ class VanillaInstaller(private val id: String, private val fs: Vfs) : Installer 
                 val isLegacy = profile.assetId() == "pre-1.6" || profile.assetId() == "legacy"
 
                 // The asset index will be resolved at the post-installation stage
-                fs.assetIndex(it.path()).let {
+                container.assetIndex(it.path()).let {
                     Files.createDirectories(it.parent)
                     Files.writeString(it, assetIndexContent)
                 }
 
                 if (mapToResources) {
                     // Save a copy for ancient versions
-                    fs.assetMapToResources("${profile.assetId()}.json").let {
+                    container.assetMapToResources("${profile.assetId()}.json").let {
                         Files.createDirectories(it.parent)
                         Files.writeString(it, assetIndexContent)
                     }
@@ -83,65 +82,34 @@ class VanillaInstaller(private val id: String, private val fs: Vfs) : Installer 
                 debug("Saved asset index ${it.path()}")
 
                 // Generate assets
-                assetIndexObject.gets("objects")?.let {
-                    it.jsonObject.entries.forEach { (fileName, v) ->
-                        val hash = v.getString("hash")
-                        val size = v.getLong("size")
-                        val url = Sources.VANILLA_RESOURCES.value + "/${hash.substring(0..1)}/$hash"
+                assetIndexObject.getObject("objects")?.forEach { fileName, v ->
+                    val hash = v.getString("hash")
+                    val size = v.getLong("size")
+                    val url = Sources.VANILLA_RESOURCES.value + "/${hash.substring(0..1)}/$hash"
 
-                        val path = when {
-                            mapToResources -> fs.assetMapToResources(fileName)
-                            isLegacy -> fs.assetLegacy(fileName)
-                            else -> fs.asset(hash)
-                        }
-
-                        add(Artifact.of(url, path.toString(), size.toULong(), "sha1=$hash"))
+                    val path = when {
+                        mapToResources -> container.assetMapToResources(fileName)
+                        isLegacy -> container.assetLegacy(fileName)
+                        else -> container.asset(hash)
                     }
+
+                    add(Artifact.of(url, path.toString(), size.toULong(), "sha1=$hash"))
                 }
             }
 
             // Libraries
-            profile.libraries().filter {
+            profile.libraries()
                 // Among all profiles, there is no library whose rules involve feature keys
                 // An OS-based value set should be enough
-                it.rules() accepts osRuleValues
-            }.forEach {
-                listOfNotNull(it.artifact(), it.nativeArtifact())
-                    .forEach {
-                        add(
-                            Artifact.of(
-                                it.url(),
-                                fs.library(it.path()).toString(),
-                                it.size(),
-                                it.checksum()
-                            )
-                        )
-                    }
-            }
+                .filterRules(osRuleValues)
+                .flatMap { listOfNotNull(it.artifact(), it.nativeArtifact()) }
+                .let { addAll(it) }
 
             // Client
-            profile.clientArtifact()?.run {
-                add(
-                    Artifact.of(
-                        url(),
-                        fs.client(profile.id()).toString(),
-                        size(),
-                        checksum()
-                    )
-                )
-            }
+            profile.clientArtifact()?.let { add(it) }
 
             // Logging
-            profile.loggingArtifact()?.run {
-                add(
-                    Artifact.of(
-                        url(),
-                        fs.logConfig(path()).toString(),
-                        size(),
-                        checksum()
-                    )
-                )
-            }
+            profile.loggingArtifact()?.let { add(it) }
         }.let {
             info("Fetching files for ${profile.id()} (${it.size})")
             DownloadGroup(it).resolveOrThrow()
@@ -154,11 +122,11 @@ class VanillaInstaller(private val id: String, private val fs: Vfs) : Installer 
         // Unpack natives
         debug("Unpacking optional native libraries")
         profile.libraries()
-            .filter { it.rules() accepts osRuleValues }
+            .filterRules(osRuleValues)
             .mapNotNull { it.nativeArtifact() }
             .forEach {
                 debug("Unpacking ${it.path()}")
-                unzip(fs.library(it.path()).toString(), fs.natives(profile.id()).toString())
+                unzip(it.path(), container.natives(profile.id()).toString())
             }
     }
 }

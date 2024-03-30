@@ -27,11 +27,7 @@ fun checksum(f: String, algo: String): String =
                 update(bytes, 0, bytesRead)
             }
         }
-    }.digest().let {
-        StringBuilder().apply {
-            it.forEach { append(String.format("%02x", it)) }
-        }.toString().lowercase()
-    }
+    }.digest().joinToString("") { String.format("%02x", it) }.lowercase()
 
 /**
  * Unpacks a zip file.

@@ -1,13 +1,13 @@
-package skjsjhb.mc.hyaci.launch
+package skjsjhb.mc.hyaci.profile
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class LaunchProfileTest {
+class ProfileTest {
     @Test
     fun `Profile Linking`() {
-        LaunchProfile.load("fabric-loader-0.15.6-1.20.4") {
+        Profile.load("fabric-loader-0.15.6-1.20.4") {
             javaClass.getResource("/$it.json")?.readText() ?: ""
         }.apply {
             assertEquals("fabric-loader-0.15.6-1.20.4", id())
@@ -22,10 +22,10 @@ class LaunchProfileTest {
 
     @Test
     fun `Legacy Profile Loading`() {
-        LaunchProfile.load("1.12.2") { javaClass.getResource("/1.12.2.json")!!.readText() }
+        Profile.load("1.12.2") { javaClass.getResource("/1.12.2.json")!!.readText() }
             .apply {
-                assertTrue { gameArguments().isNotEmpty() }
-                assertTrue { jvmArguments().isNotEmpty() }
+                assertTrue { gameArgs().isNotEmpty() }
+                assertTrue { jvmArgs().isNotEmpty() }
             }
     }
 }

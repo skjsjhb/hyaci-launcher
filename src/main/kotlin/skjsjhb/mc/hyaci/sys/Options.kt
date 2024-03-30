@@ -27,9 +27,7 @@ object Options {
             ?: runCatching {
                 connection.prepareStatement("SELECT $valueColumnName FROM $tableName WHERE $keyColumnName = ?")
                     .apply { setString(1, key) }
-                    .use {
-                        it.executeQuery()?.takeIf { it.next() }?.getString(1)
-                    }
+                    .use { it.executeQuery().takeIf { it.next() }?.getString(1) }
             }.onFailure {
                 // This is only executed when SQL exceptions are thrown (not for empty keys)
                 warn("Exception when reading option $key", it)

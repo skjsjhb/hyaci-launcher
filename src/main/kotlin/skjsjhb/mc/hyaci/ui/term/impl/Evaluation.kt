@@ -1,8 +1,11 @@
 package skjsjhb.mc.hyaci.ui.term.impl
 
-import skjsjhb.mc.hyaci.ui.term.*
+import skjsjhb.mc.hyaci.ui.term.CommandExecutor
+import skjsjhb.mc.hyaci.ui.term.CommandProcessor
+import skjsjhb.mc.hyaci.ui.term.InteractionContext
 import skjsjhb.mc.hyaci.ui.term.compose.CommandName
 import skjsjhb.mc.hyaci.ui.term.compose.Usage
+import skjsjhb.mc.hyaci.ui.term.readCommand
 import java.io.FileReader
 import java.io.Reader
 import java.net.URI
@@ -34,19 +37,23 @@ class Evaluation : CommandProcessor {
     }
 
     private fun warnDanger() {
-        twarn("Launch script can be EXTREMELY DANGEROUS if its content is unknown.")
-        twarn("Including but not limited to data corruption, credentials leak and malware.")
-        twarn("DO NOT execute launch scripts from untrusted source!")
-        requireConfirm("I know what I'm doing!")
+        InteractionContext.run {
+            warn("Launch script can be EXTREMELY DANGEROUS if its content is unknown.")
+            warn("Including but not limited to data corruption, credentials leak and malware.")
+            warn("DO NOT execute launch scripts from untrusted source!")
+            requestConfirm("I know what I'm doing!")
+        }
     }
 
     private fun exec(src: Reader) {
-        val executor = CommandExecutor()
-        while (true) {
-            src.readCommand().let {
-                if (it == null) return
-                tinfo(">>> $it")
-                executor.dispatch(it)
+        InteractionContext.run {
+            val executor = CommandExecutor()
+            while (true) {
+                src.readCommand().let {
+                    if (it == null) return
+                    info(">>> $it")
+                    executor.dispatch(it)
+                }
             }
         }
     }

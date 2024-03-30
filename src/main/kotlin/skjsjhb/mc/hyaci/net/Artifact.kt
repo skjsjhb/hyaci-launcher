@@ -29,7 +29,7 @@ interface Artifact {
      */
     fun checksum(): String
 
-    companion object ArtifactUtils {
+    companion object {
         /**
          * Create an artifact with plain values.
          */

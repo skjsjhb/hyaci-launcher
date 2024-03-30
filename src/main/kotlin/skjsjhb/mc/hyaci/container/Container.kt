@@ -1,9 +1,9 @@
-package skjsjhb.mc.hyaci.vfs
+package skjsjhb.mc.hyaci.container
 
 import java.nio.file.Path
 
 /**
- * Represents a virtual filesystem managing game resources.
+ * A container manages game resources.
  *
  * There exists a number of different ways to organize the resource layout,
  * each with different path resolution strategies.
@@ -12,9 +12,9 @@ import java.nio.file.Path
  * Method names of this class are shortened for simplicity.
  * Without clarification, it can be assumed that they perform path resolution and return the JVM [Path] representation.
  */
-interface Vfs {
+interface Container {
     /**
-     * Gets the name of the VFS.
+     * Gets the name.
      */
     fun name(): String
 

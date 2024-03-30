@@ -1,18 +1,18 @@
-package skjsjhb.mc.hyaci.vfs
+package skjsjhb.mc.hyaci.container
 
 import skjsjhb.mc.hyaci.sys.blobOf
 import skjsjhb.mc.hyaci.sys.openDBConnection
 import skjsjhb.mc.hyaci.sys.toObject
 
 /**
- * Manages and store registered VFS instances.
+ * Manages and store registered containers.
  */
-object VfsManager {
+object ContainerManager {
     private val connection = openDBConnection()
 
-    private const val tableName = "VFS_REGISTRY"
-    private const val nameColumnName = "V_NAME"
-    private const val objColumnName = "V_OBJ"
+    private const val tableName = "CONTAINERS"
+    private const val nameColumnName = "C_NAME"
+    private const val objColumnName = "C_OBJ"
 
     init {
         connection.createStatement().use {
@@ -20,10 +20,10 @@ object VfsManager {
         }
     }
 
-    fun put(fs: Vfs) {
+    fun put(c: Container) {
         connection.prepareStatement("MERGE INTO $tableName ($nameColumnName, $objColumnName) VALUES ( ?, ? )").use {
-            it.setString(1, fs.name())
-            it.setBlob(2, connection.blobOf(fs))
+            it.setString(1, c.name())
+            it.setBlob(2, connection.blobOf(c))
             it.execute()
         }
     }
@@ -38,12 +38,12 @@ object VfsManager {
         }
     }
 
-    fun get(name: String): Vfs {
+    fun get(name: String): Container {
         connection.prepareStatement("SELECT $objColumnName FROM $tableName WHERE $nameColumnName = ?").use {
             it.setString(1, name)
             it.executeQuery().use {
-                if (!it.next()) throw NoSuchElementException("No VFS named $name")
-                return it.getBlob(1).toObject() as Vfs
+                if (!it.next()) throw NoSuchElementException("No container named $name")
+                return it.getBlob(1).toObject() as Container
             }
         }
     }
@@ -55,12 +55,12 @@ object VfsManager {
         }
     }
 
-    fun getAll(): Set<Vfs> =
+    fun getAll(): Set<Container> =
         connection.createStatement().use {
             it.executeQuery("SELECT $objColumnName FROM $tableName").use { rs ->
-                mutableSetOf<Vfs>().apply {
+                mutableSetOf<Container>().apply {
                     while (rs.next()) {
-                        add(rs.getBlob(1).toObject() as Vfs)
+                        add(rs.getBlob(1).toObject() as Container)
                     }
                 }
             }

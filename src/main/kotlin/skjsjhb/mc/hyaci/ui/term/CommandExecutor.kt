@@ -18,7 +18,7 @@ class CommandExecutor {
 
     private val processors: MutableMap<String, CommandProcessor> = HashMap()
 
-    private val usage: MutableMap<String, String> = HashMap()
+    private val usages: MutableMap<String, String> = HashMap()
 
     private var lastFailedCommand: Command? = null
 
@@ -29,25 +29,27 @@ class CommandExecutor {
     /**
      * Finds the handlers in the specified [CommandProcessor] and register each as a handler.
      */
-    fun addProcessor(what: CommandProcessor) {
+    private fun addProcessor(what: CommandProcessor) {
         what::class.declaredMembers
             .filter { !it.name.startsWith("<") } // Properties
             .filter { !it.isSuspend }
             .filter { it.visibility == KVisibility.PUBLIC }
             .forEach {
-                it.annotations.filterIsInstance<WithAdapters>().forEach {
-                    it.adapters.forEach {
-                        ArgumentAdapter.addAdapterClass(it)
-                    }
+                it.annotations.filterIsInstance<WithAdapters>().map { it.adapters.asIterable() }.flatten().forEach {
+                    ArgumentAdapter.addAdapterClass(it)
                 }
 
-                val usageString = it.annotations.filterIsInstance<Usage>().firstOrNull()?.value ?: ""
+                val usage = it.annotations.filterIsInstance<Usage>().joinToString("\n") { it.value.trimIndent() }
 
-                (it.annotations.filterIsInstance<CommandName>().firstOrNull()?.names ?: arrayOf(it.name))
+                it.annotations
+                    .filterIsInstance<CommandName>()
+                    .map { it.names.asIterable() }
+                    .flatten()
+                    .union(setOf(it.name)) // Add method name
                     .forEach { name ->
                         handlers[name] = it
                         processors[name] = what
-                        usage[name] = usageString
+                        usages[name] = usage
                     }
             }
     }
@@ -58,7 +60,7 @@ class CommandExecutor {
     fun dispatch(command: Command): Boolean {
         if (command.subject() == "retry") {
             return if (lastFailedCommand == null) {
-                terror("There is no command to retry.")
+                InteractionContext.error("There is no command to retry.")
                 false
             } else {
                 dispatch(lastFailedCommand!!)
@@ -66,13 +68,13 @@ class CommandExecutor {
         } else if (command.subject() == "help") {
             val target = command.unnamed(0)
             if (target != null) {
-                tinfo((usage[target]!!).trimIndent())
+                InteractionContext.info((usages[target]!!).trimIndent())
             } else {
-                tinfo("All commands:")
+                InteractionContext.info("All commands:")
                 handlers.keys.forEach {
-                    tinfo("- $it")
+                    InteractionContext.info("- $it")
                 }
-                tinfo("Type 'help <command>' for command-specific usage.")
+                InteractionContext.info("Type 'help <command>' for command-specific usage.")
             }
             return true
         }
@@ -84,10 +86,10 @@ class CommandExecutor {
             }.onFailure {
                 val message = it.findMostRecentMessage()
                 err("Exception in command handler", it)
-                terror("Canceled due to previous error. ($message)")
+                InteractionContext.error("Canceled due to previous error. ($message)")
             }.getOrDefault(false)
         } else {
-            terror("No command named ${command.subject()}")
+            InteractionContext.error("No command named ${command.subject()}")
             false
         }
 
@@ -100,7 +102,7 @@ class CommandExecutor {
 
     private fun Throwable.findMostRecentMessage(): String {
         if (localizedMessage?.isNotBlank() == true) return localizedMessage
-        return if (cause == null) "Unknown" else cause!!.findMostRecentMessage()
+        return cause?.findMostRecentMessage() ?: "Unknown"
     }
 
     private fun castAndCall(command: Command, candidate: KCallable<Any?>): Boolean =
@@ -112,7 +114,7 @@ class CommandExecutor {
                 val adapter = ArgumentAdapter.forType<Any>(it.type)
                 var src = it.name?.let { command.named(it) } ?: command.unnamed(it.index - 1)
                 if (src == null && !it.isOptional && it.name != null) {
-                    src = askMore(it.name!!)
+                    src = InteractionContext.requestInput(it.name!!)
                 }
                 src?.let { s -> put(it, adapter.get(s)) }
             }
