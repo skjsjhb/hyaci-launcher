@@ -12,6 +12,7 @@ import skjsjhb.mc.hyaci.profile.filterRules
 import skjsjhb.mc.hyaci.sys.Canonical
 import skjsjhb.mc.hyaci.util.*
 import java.nio.file.Files
+import java.nio.file.Path
 
 /**
  * Installs a vanilla game.
@@ -19,9 +20,11 @@ import java.nio.file.Files
  * @param id The ID of the game.
  * @param container The [Container] to install the game on.
  */
-class VanillaInstaller(private val id: String, private val container: Container) : Installer {
+class VanillaInstaller(private val id: String, private val container: Container) : Installer, Progressed {
     // Cached profile object
     private lateinit var profile: ConcreteProfile
+
+    private var progressHandler: ((String, Double) -> Unit)? = null
 
     override fun install() {
         info("Installing $id on ${container.resolve(".")}")
@@ -34,6 +37,8 @@ class VanillaInstaller(private val id: String, private val container: Container)
     }
 
     private fun fetchProfile() {
+        progressHandler?.invoke("Fetch Profile", -1.0)
+
         val profileUrl = versionManifest.getArray("versions")
             ?.find { it.getString("id") == id }
             ?.getString("url")
@@ -48,6 +53,8 @@ class VanillaInstaller(private val id: String, private val container: Container)
             Files.createDirectories(it.parent)
             Files.writeString(it, profileContent)
         }
+
+        progressHandler?.invoke("Fetch Profile", 1.0)
 
         debug("Saved profile")
     }
@@ -66,7 +73,7 @@ class VanillaInstaller(private val id: String, private val container: Container)
                 val isLegacy = profile.assetId() == "pre-1.6" || profile.assetId() == "legacy"
 
                 // The asset index will be resolved at the post-installation stage
-                container.assetIndex(it.path()).let {
+                Path.of(it.path()).let {
                     Files.createDirectories(it.parent)
                     Files.writeString(it, assetIndexContent)
                 }
@@ -112,7 +119,12 @@ class VanillaInstaller(private val id: String, private val container: Container)
             profile.loggingArtifact()?.let { add(it) }
         }.let {
             info("Fetching files for ${profile.id()} (${it.size})")
-            DownloadGroup(it).resolveOrThrow()
+            DownloadGroup(it).run {
+                setProgressHandler { status, progress ->
+                    progressHandler?.invoke("Fetch Files ($status)", progress)
+                }
+                resolveOrThrow()
+            }
         }
     }
 
@@ -124,10 +136,15 @@ class VanillaInstaller(private val id: String, private val container: Container)
         profile.libraries()
             .filterRules(osRuleValues)
             .mapNotNull { it.nativeArtifact() }
+            .withProgress { _, progress -> progressHandler?.invoke("Unpack Natives", progress) }
             .forEach {
                 debug("Unpacking ${it.path()}")
                 unzip(it.path(), container.natives(profile.id()).toString())
             }
+    }
+
+    override fun setProgressHandler(handler: (status: String, progress: Double) -> Unit) {
+        progressHandler = handler
     }
 }
 

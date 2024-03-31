@@ -45,7 +45,7 @@ class CommandExecutor {
                     .filterIsInstance<CommandName>()
                     .map { it.names.asIterable() }
                     .flatten()
-                    .union(setOf(it.name)) // Add method name
+                    .ifEmpty { setOf(it.name) }
                     .forEach { name ->
                         handlers[name] = it
                         processors[name] = what

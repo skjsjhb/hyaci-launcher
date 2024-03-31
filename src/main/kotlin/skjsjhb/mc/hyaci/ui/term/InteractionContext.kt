@@ -3,6 +3,7 @@ package skjsjhb.mc.hyaci.ui.term
 import org.fusesource.jansi.Ansi
 import org.fusesource.jansi.AnsiConsole
 import java.util.*
+import kotlin.math.roundToInt
 
 /**
  * A class for handling UI interactions.
@@ -17,7 +18,7 @@ object InteractionContext {
      * @param optional Whether the confirmation is optional. Rejected mandatory confirmation will lead to an exception.
      */
     fun requestConfirm(what: String = "Continue?", optional: Boolean = false): Boolean {
-        printColorfulLine { fgDefault().a("? $what (yes/no): ") }
+        printColorful { fgDefault().a("? $what (yes/no): ") }
         while (true) {
             val a = inputScanner.nextLine().lowercase()
             if (a == "yes") return true
@@ -25,7 +26,7 @@ object InteractionContext {
                 if (optional) return false
                 else throw IllegalStateException("Confirmation rejected")
             }
-            printColorfulLine { fgDefault().a("? Please type 'yes' or 'no': ") }
+            printColorful { fgDefault().a("? Please type 'yes' or 'no': ") }
         }
     }
 
@@ -52,6 +53,23 @@ object InteractionContext {
 
     fun info(what: String) {
         printColorfulLine { fgBrightCyan().a(what) }
+    }
+
+    fun printProgress(status: String, progress: Double) {
+        printColorful { fgBrightCyan().a(formatProgress(status, progress) + "\r") }
+    }
+
+    private fun formatProgress(status: String, progress: Double): String {
+        val isIndefinite = progress < 0
+        val barLength = (progress * 40).roundToInt()
+        val bar =
+            if (isIndefinite) "[" + "-".repeat(40) + "]"
+            else "[" + "=".repeat(barLength).padEnd(40) + "]"
+
+        val percent =
+            if (isIndefinite) "...."
+            else (progress * 100).roundToInt().toString().padStart(3) + "%"
+        return status.padEnd(60) + bar + " " + percent
     }
 
     private fun printColorfulLine(what: Ansi.() -> Ansi) {

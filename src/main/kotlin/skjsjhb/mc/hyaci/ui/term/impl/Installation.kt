@@ -22,9 +22,11 @@ class Installation : CommandProcessor {
     fun installGame(id: String, c: Container) {
         InteractionContext.run {
             info("Install vanilla game $id on container ${c.name()}.")
-            info("(This may take some minutes and many logs will appear)")
             requestConfirm("Is this correct?")
-            VanillaInstaller(id, c).install()
+            VanillaInstaller(id, c).run {
+                setProgressHandler { status, progress -> printProgress(status, progress) }
+                install()
+            }
             info("Completed installation of $id.")
         }
     }

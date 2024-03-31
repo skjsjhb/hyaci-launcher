@@ -11,6 +11,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.security.NoSuchAlgorithmException
+import java.time.Duration
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -285,12 +286,16 @@ class DownloadTask(private val artifact: Artifact) {
  *
  * @param artifacts Artifacts to handle.
  */
-class DownloadGroup(artifacts: Iterable<Artifact>) {
+class DownloadGroup(artifacts: Iterable<Artifact>) : Progressed {
     private val tasks: List<DownloadTask> =
         artifacts.map { DownloadTask(it) }
 
     private val executorService =
         Executors.newWorkStealingPool(Options.getInt("downloads.poolSize", 32).clampMin(1))
+
+    private var progressHandler: ((String, Double) -> Unit)? = null
+
+    private val isActive = AtomicBoolean(false)
 
     /**
      * Gets the current speed.
@@ -312,34 +317,23 @@ class DownloadGroup(artifacts: Iterable<Artifact>) {
     }
 
     /**
-     * Gets the progress in terms of the completed tasks.
-     */
-    fun progressByCount(): Pair<Int, Int> =
-        Pair(tasks.fold(0) { s, t -> if (t.finished()) s + 1 else s }, tasks.size)
-
-    /**
-     * Gets the progress in terms of the completed size.
-     */
-    fun progressBySize(): Pair<Long, Long> {
-        var cs = 0L
-        var ts = 0L
-        tasks.map { it.progress() }.forEach {
-            cs += it.first
-            ts += it.second
-        }
-        return Pair(cs, ts)
-    }
-
-    /**
      * Resolves the download group.
      *
      * This method blocks until all tasks are processed, either successful or failed.
      *
      * @return Whether all underlying tasks have succeeded.
      */
-    fun resolve(): Boolean =
-        executorService.invokeAll(tasks.map { Callable { it.resolve() } }).all { it.get() }
-            .also { executorService.shutdown() }
+    fun resolve(): Boolean {
+        setupProgressSync()
+        return executorService.invokeAll(tasks.map {
+            Callable {
+                it.resolve()
+            }
+        }).all { it.get() }.also {
+            executorService.shutdown()
+            isActive.set(false)
+        }
+    }
 
     /**
      * Resolves the download group.
@@ -348,10 +342,51 @@ class DownloadGroup(artifacts: Iterable<Artifact>) {
      * This method blocks until all tasks are processed, either successful or failed.
      */
     fun resolveOrThrow() {
-        val futures = executorService.invokeAll(tasks.map { Callable { it.resolveOrThrow() } })
+        setupProgressSync()
+        val futures = executorService.invokeAll(tasks.map {
+            Callable {
+                it.resolveOrThrow()
+            }
+        })
         executorService.shutdown()
         futures.forEach { it.get() }
+        isActive.set(false)
     }
+
+    private fun setupProgressSync() {
+        val progressUpdateInterval = Duration.ofMillis(250)
+
+        isActive.set(true)
+        Thread {
+            while (isActive.get()) {
+                val (cur, total) = getCompletedSizeAsProgress()
+                val s = toReadableSize(cur) + " / " + toReadableSize(total)
+                val p = cur.toDouble() / total
+                progressHandler?.invoke(s, p)
+                Thread.sleep(progressUpdateInterval)
+            }
+        }.start()
+    }
+
+    private fun getCompletedSizeAsProgress(): Pair<Long, Long> {
+        var current = 0L
+        var total = 0L
+        tasks.map { it.progress() }.forEach {
+            current += it.first
+            total += it.second
+        }
+        return Pair(current, total)
+    }
+
+    override fun setProgressHandler(handler: (status: String, progress: Double) -> Unit) {
+        progressHandler = handler
+    }
+
+    private fun toReadableSize(src: Long): String =
+        if (src > 1024 * 1024 * 1024) String.format("%.2f GiB", src / 1024.0 / 1024.0 / 1024.0)
+        else if (src > 1024 * 1024) String.format("%.2f MiB", src / 1024.0 / 1024.0)
+        else if (src > 1024) String.format("%.2f KiB", src / 1024.0)
+        else "$src B"
 }
 
 /**
