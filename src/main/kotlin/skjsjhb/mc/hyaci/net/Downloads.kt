@@ -93,10 +93,9 @@ class DownloadTask(private val artifact: Artifact) {
      */
     fun speed(): Long = speed0.get()
 
-    /**
-     * Gets the progress of the current task.
-     */
-    fun progress(): Pair<Long, Long> = Pair(completedSize.get(), totalSize.get())
+    fun getTotalSize(): Long = totalSize.get()
+
+    fun getCompletedSize(): Long = completedSize.get()
 
     /**
      * Checks whether the task has finished.
@@ -359,23 +358,14 @@ class DownloadGroup(artifacts: Iterable<Artifact>) : Progressed {
         isActive.set(true)
         Thread {
             while (isActive.get()) {
-                val (cur, total) = getCompletedSizeAsProgress()
-                val s = toReadableSize(cur) + " / " + toReadableSize(total)
-                val p = cur.toDouble() / total
+                val current = tasks.fold(0L) { s, t -> s + t.getCompletedSize() }
+                val total = tasks.fold(0L) { s, t -> s + t.getTotalSize() }
+                val s = toReadableSize(current) + " / " + toReadableSize(total)
+                val p = current.toDouble() / total
                 progressHandler?.invoke(s, p)
                 Thread.sleep(progressUpdateInterval)
             }
         }.start()
-    }
-
-    private fun getCompletedSizeAsProgress(): Pair<Long, Long> {
-        var current = 0L
-        var total = 0L
-        tasks.map { it.progress() }.forEach {
-            current += it.first
-            total += it.second
-        }
-        return Pair(current, total)
     }
 
     override fun setProgressHandler(handler: (status: String, progress: Double) -> Unit) {
