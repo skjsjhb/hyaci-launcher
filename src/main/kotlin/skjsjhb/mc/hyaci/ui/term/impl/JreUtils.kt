@@ -35,7 +35,10 @@ class JreUtils : CommandProcessor {
         InteractionContext.run {
             info("Install Java component: $name")
             requestConfirm("Is this correct?")
-            JreInstaller(name).install()
+            JreInstaller(name).run {
+                setProgressHandler { status, progress -> printProgress(status, progress) }
+                install()
+            }
             info("Completed installation of $name.")
         }
     }

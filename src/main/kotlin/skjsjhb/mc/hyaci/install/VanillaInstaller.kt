@@ -136,7 +136,7 @@ class VanillaInstaller(private val id: String, private val container: Container)
         profile.libraries()
             .filterRules(osRuleValues)
             .mapNotNull { it.nativeArtifact() }
-            .withProgress { _, progress -> progressHandler?.invoke("Unpack Natives", progress) }
+            .withProgress { status, progress -> progressHandler?.invoke("Unpack Natives ($status)", progress) }
             .forEach {
                 debug("Unpacking ${it.path()}")
                 unzip(it.path(), container.natives(profile.id()).toString())

@@ -66,8 +66,6 @@ class DownloadTask(private val artifact: Artifact) {
         @Synchronized
         set
 
-    private var hostThread: Thread = Thread.currentThread()
-
     // There is no atomic version of ULong, but Long is still usually longer than any file length
     private var totalSize = AtomicLong(artifact.size().toLong())
 
@@ -107,8 +105,6 @@ class DownloadTask(private val artifact: Artifact) {
      * Resolves the download task, blocks until it's completed.
      */
     fun resolve(): Boolean {
-        hostThread = Thread.currentThread()
-
         status = DownloadTaskStatus.ACTIVE
         info("Now $url")
 
@@ -361,7 +357,7 @@ class DownloadGroup(artifacts: Iterable<Artifact>) : Progressed {
                 val current = tasks.fold(0L) { s, t -> s + t.getCompletedSize() }
                 val total = tasks.fold(0L) { s, t -> s + t.getTotalSize() }
                 val s = toReadableSize(current) + " / " + toReadableSize(total)
-                val p = current.toDouble() / total
+                val p = if (total == 0L) 1.0 else current.toDouble() / total
                 progressHandler?.invoke(s, p)
                 Thread.sleep(progressUpdateInterval)
             }

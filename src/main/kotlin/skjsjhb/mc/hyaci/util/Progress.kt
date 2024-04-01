@@ -23,7 +23,7 @@ fun <T> Iterable<T>.withProgress(handler: (status: String, progress: Double) -> 
                     private var index = 0
                     override fun next(): T {
                         index++
-                        handler("", index.toDouble() / count)
+                        handler("$index/$count", if (count == 0) 1.0 else index.toDouble() / count)
                         return backedIterator.next()
                     }
                 }

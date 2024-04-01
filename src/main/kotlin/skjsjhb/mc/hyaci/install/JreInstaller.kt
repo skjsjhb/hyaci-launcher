@@ -12,13 +12,16 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * An installer which installs the specified JRE component.
  */
-class JreInstaller(private val componentName: String) : Installer {
+class JreInstaller(private val componentName: String) : Installer, Progressed {
     private lateinit var files: List<JreFile>
     private val rootDir = getBundledJreInstallDir(componentName)
+
+    private var progressHandler: ((String, Double) -> Unit)? = null
 
     override fun install() {
         info("Installing runtime $componentName")
@@ -46,24 +49,35 @@ class JreInstaller(private val componentName: String) : Installer {
             )
         }.let {
             debug("Downloading ${it.size} files")
-            DownloadGroup(it).resolveOrThrow()
+            DownloadGroup(it).apply {
+                setProgressHandler { status, progress -> progressHandler?.invoke("Fetch Files ($status)", progress) }
+                resolveOrThrow()
+            }
         }
     }
 
     private fun inflateLZMA() {
         debug("Inflating LZMA files")
 
+        val completed = AtomicInteger(0)
+        val total = AtomicInteger(0)
+
         // Inflate concurrently
         Executors.newWorkStealingPool().use {
             it.invokeAll(
-                files.filter { it.isLzma }.map {
-                    Callable {
-                        val pat = rootDir.resolve(it.artifact.path()).toString()
-                        unlzma("$pat.lzma", pat)
-                        Files.deleteIfExists(Path.of("$pat.lzma"))
-                        debug("Inflated $pat")
+                files.filter { it.isLzma }
+                    .ifEmpty { return }
+                    .also { total.set(it.size) }
+                    .map {
+                        Callable {
+                            val pat = rootDir.resolve(it.artifact.path()).toString()
+                            unlzma("$pat.lzma", pat)
+                            Files.deleteIfExists(Path.of("$pat.lzma"))
+                            debug("Inflated $pat")
+                            completed.incrementAndGet()
+                            progressHandler?.invoke("Inflate Files", completed.get().toDouble() / total.get())
+                        }
                     }
-                }
             ).forEach { it.get() }
             it.shutdown()
         }
@@ -71,15 +85,21 @@ class JreInstaller(private val componentName: String) : Installer {
 
     private fun makeExecutable() {
         debug("Making files executable")
-        files.filter { it.executable }.forEach {
-            rootDir.resolve(it.artifact.path()).let {
-                it.toFile().setExecutable(true)
-                debug("Executable flag set: $it")
+        files.filter { it.executable }.ifEmpty { return }
+            .withProgress { status, progress ->
+                progressHandler?.invoke("Assign File Attributes ($status)", progress)
             }
-        }
+            .forEach {
+                rootDir.resolve(it.artifact.path()).let {
+                    it.toFile().setExecutable(true)
+                    debug("Executable flag set: $it")
+                }
+            }
     }
 
     private fun retrieveFileList() {
+        progressHandler?.invoke("Retrieve File List", -1.0)
+
         val componentKey = "${osPair()}.$componentName"
         val manifestUrl = jreManifest.getString("$componentKey.0.manifest.url")
             .ifBlank { throw UnsupportedOperationException("No manifest found for $componentKey ") }
@@ -96,12 +116,14 @@ class JreInstaller(private val componentName: String) : Installer {
                 val artifact = Artifact.of(
                     v.getString("downloads.$typeHint.url"),
                     k,
-                    v.getLong("downloads.$typeHint.url").toULong(),
+                    v.getLong("downloads.$typeHint.size").toULong(),
                     "sha1=" + v.getString("downloads.$typeHint.sha1")
                 )
 
                 JreFile(artifact, v.getBoolean("executable"), isLzma)
             }
+
+        progressHandler?.invoke("Retrieve File List", 1.0)
     }
 
     /**
@@ -117,6 +139,10 @@ class JreInstaller(private val componentName: String) : Installer {
             "windows" -> "windows-x64"
             else -> "" // This is not going to happen
         }
+
+    override fun setProgressHandler(handler: (status: String, progress: Double) -> Unit) {
+        progressHandler = handler
+    }
 }
 
 private fun getBundledJreInstallDir(componentName: String): Path = dataPathOf("runtimes/$componentName")
