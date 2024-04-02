@@ -35,5 +35,5 @@ fun Reader.readCommand(): Command? = StringBuilder().run {
             }
         }
     }
-    if (eos) null else Command.of(toString())
+    if (eos && isEmpty()) null else Command.of(toString())
 }
