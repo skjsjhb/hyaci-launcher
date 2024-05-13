@@ -3,7 +3,7 @@ import org.panteleyev.jpackage.ImageType
 import org.panteleyev.jpackage.JPackageTask
 
 plugins {
-    kotlin("jvm") version "1.9.23"
+    kotlin("jvm") version "1.9.24"
     kotlin("plugin.serialization") version "1.9.23"
     id("org.jetbrains.dokka") version "1.9.20"
     id("idea")
